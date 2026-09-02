@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
   setupAuthNav();
 
-  // Agar login page hai (customer/staff panels)
+  // If this is the login page (customer/staff panels)
   if (
     document.getElementById('customer-auth-panel') ||
     document.getElementById('staff-auth-panel')
@@ -32,7 +32,7 @@ function setupAuthNav() {
   if (loginLink) loginLink.style.display = 'none';
   if (logoutLink) logoutLink.style.display = 'inline-flex';
 
-  // Sirf CUSTOMER ke liye profile icon show karo
+  // Show profile icon only for CUSTOMER
   if (profileBtn) {
     if (user.role === 'CUSTOMER') {
       profileBtn.style.display = 'inline-flex';
@@ -126,7 +126,7 @@ async function handleCustomerSendOtp() {
   const contact = contactInput.value.trim();
   if (!contact) {
     if (errorBox) {
-      errorBox.textContent = 'Mobile number daalna zaroori hai.';
+      errorBox.textContent = 'Please enter your mobile number.';
       errorBox.style.display = 'block';
     }
     return;
@@ -139,7 +139,7 @@ async function handleCustomerSendOtp() {
 
   const original = btn.textContent;
   btn.disabled = true;
-  btn.textContent = 'OTP bhej rahe hain...';
+  btn.textContent = 'Sending OTP...';
 
   try {
     await Api.post('/auth/customer/send-otp', { contact });
@@ -147,7 +147,7 @@ async function handleCustomerSendOtp() {
     if (otpSection) otpSection.style.display = 'block';
 
     if (errorBox) {
-      errorBox.textContent = 'OTP bhej diya gaya hai. Apne phone pe check karein.';
+      errorBox.textContent = 'OTP has been sent. Please check your phone.';
       errorBox.classList.remove('alert-error');
       errorBox.classList.add('alert-success');
       errorBox.style.display = 'block';
@@ -158,7 +158,8 @@ async function handleCustomerSendOtp() {
       errorBox.classList.remove('alert-success');
       errorBox.classList.add('alert-error');
       errorBox.textContent =
-        err.message || 'OTP nahi bhej paaye, thodi der baad dobara try karein.';
+        err.message ||
+        'We were unable to send the OTP. Please try again after some time.';
       errorBox.style.display = 'block';
     }
   } finally {
@@ -180,7 +181,7 @@ async function handleCustomerVerifyOtp() {
 
   if (!contact || !otp) {
     if (errorBox) {
-      errorBox.textContent = 'Mobile number aur OTP dono required hain.';
+      errorBox.textContent = 'Both mobile number and OTP are required.';
       errorBox.style.display = 'block';
     }
     return;
@@ -203,13 +204,13 @@ async function handleCustomerVerifyOtp() {
 
     Api.setAuth(res.token, res.user);
 
-    // CUSTOMER ke liye direct menu
+    // CUSTOMER → menu
     window.location.href = 'menu.html';
   } catch (err) {
     console.error('Verify OTP error', err);
     if (errorBox) {
       errorBox.textContent =
-        err.message || 'OTP verify nahi ho paaya, dubara try karein.';
+        err.message || 'Unable to verify OTP. Please try again.';
       errorBox.style.display = 'block';
     }
   } finally {
@@ -234,7 +235,7 @@ async function handleStaffLogin(e) {
 
   if (!contact || !password) {
     if (errorBox) {
-      errorBox.textContent = 'Contact aur password dono chahiye.';
+      errorBox.textContent = 'Both contact number and password are required.';
       errorBox.style.display = 'block';
     }
     return;
@@ -247,7 +248,7 @@ async function handleStaffLogin(e) {
 
   const originalText = submitBtn.textContent;
   submitBtn.disabled = true;
-  submitBtn.textContent = 'Login kar rahe hain...';
+  submitBtn.textContent = 'Logging in...';
 
   try {
     const res = await Api.post('/auth/login', {
@@ -265,7 +266,7 @@ async function handleStaffLogin(e) {
     } else if (role === 'ADMIN') {
       window.location.href = 'admin/index.html';
     } else {
-      // Agar kisi reason se CUSTOMER aa gaya, fir bhi handle kar lo
+      // If somehow a CUSTOMER logs in here, send them to menu
       window.location.href = 'menu.html';
     }
   } catch (err) {
@@ -273,7 +274,7 @@ async function handleStaffLogin(e) {
     if (errorBox) {
       errorBox.textContent =
         err.message ||
-        'Login nahi ho paya, details check karein (sirf staff ke liye).';
+        'Login failed. Please check your details (staff accounts only).';
       errorBox.style.display = 'block';
     }
   } finally {

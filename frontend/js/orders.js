@@ -33,7 +33,7 @@ function formatCurrency(v) {
 
 async function initOrdersListPage() {
   if (!Api.getToken()) {
-    alert('Orders dekhne ke liye login zaroori hai.');
+    alert('Please log in to view your orders.');
     window.location.href = 'login.html';
     return;
   }
@@ -130,7 +130,7 @@ async function loadOrdersList() {
   } catch (err) {
     console.error('Load orders error', err);
     loadingEl.textContent =
-      err.message || 'Orders load nahi ho paaye, thodi der baad try karein.';
+      err.message || 'Unable to load orders. Please try again later.';
   } finally {
     loadingEl.style.display = 'none';
   }
@@ -139,9 +139,9 @@ async function loadOrdersList() {
 async function deleteMyOrder(id, onDone) {
   if (
     !confirm(
-      `Kya aap order ${String(id).slice(
+      `Are you sure you want to permanently delete order ${String(id).slice(
         -6
-      )} ko permanently delete karna chahte hain?`
+      )}?`
     )
   ) {
     return;
@@ -152,7 +152,7 @@ async function deleteMyOrder(id, onDone) {
     onDone && onDone();
   } catch (err) {
     console.error('Delete my order error', err);
-    alert(err.message || 'Order delete nahi ho paaya.');
+    alert(err.message || 'Unable to delete the order.');
   }
 }
 
@@ -232,14 +232,14 @@ async function initOrderDetailPage() {
 
   if (!id) {
     alert(
-      'Order ID missing hai. Pehle "My Orders" page se kisi order par "View details" dabayein.'
+      'Order ID is missing. Please open this page from the "My Orders" screen.'
     );
     window.location.href = 'orders.html';
     return;
   }
 
   if (!Api.getToken()) {
-    alert('Order details dekhne ke liye login zaroori hai.');
+    alert('Please log in to view order details.');
     window.location.href = 'login.html';
     return;
   }
@@ -279,7 +279,7 @@ async function fetchAndRenderOrder(id, container, loadingEl, hideLoaderOnEnd) {
   } catch (err) {
     console.error('Order detail error', err);
     loadingEl.textContent =
-      err.message || 'Order details load nahi ho paaye.';
+      err.message || 'Unable to load order details right now.';
   } finally {
     if (hideLoaderOnEnd && loadingEl) {
       loadingEl.style.display = 'none';
@@ -337,7 +337,7 @@ function renderOrderDetail(order, container) {
           Distance: ${order.delivery.distance?.toFixed(2) || 0} km
         </p>
       `
-      : '<p>Outlet Pickup — No delivery fee.</p>';
+      : '<p>Outlet pickup — no delivery fee.</p>';
 
   const etaInfo = getEtaInfo(order);
   let etaHtml = '';
@@ -359,7 +359,7 @@ function renderOrderDetail(order, container) {
         <div class="order-id">Order #${order._id}</div>
         <div class="order-meta">${createdAt}</div>
       </div>
-      <div class="order-detail-right>
+      <div class="order-detail-right">
         <div class="order-amount">${formatCurrency(grandTotal)}</div>
         <div class="order-status-badge status-${order.status.toLowerCase()}">
           ${order.status.replace(/_/g, ' ')}

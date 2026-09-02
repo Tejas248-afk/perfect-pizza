@@ -4,11 +4,12 @@ document.addEventListener('DOMContentLoaded', () => {
   if (typeof setupAuthNav === 'function') {
     setupAuthNav();
   }
-    if (document.getElementById('admin-coupons-table')) {
+
+  if (document.getElementById('admin-coupons-table')) {
     initAdminCouponsPage();
   }
 
-  // Sirf ADMIN user ke liye aage ka code chale
+  // Only ADMIN user can access admin code
   if (!ensureAdmin()) return;
 
   if (document.getElementById('admin-products-table')) {
@@ -35,13 +36,13 @@ document.addEventListener('DOMContentLoaded', () => {
 function ensureAdmin() {
   const user = Api.getStoredUser();
   if (!user || !Api.getToken()) {
-    alert('Admin panel ke liye login zaroori hai (admin account).');
+    alert('Please log in with an admin account to access the admin panel.');
     window.location.href = '../login.html';
     return false;
   }
 
   if (user.role !== 'ADMIN') {
-    alert('Sirf ADMIN user hi admin panel access kar sakte hain.');
+    alert('Only ADMIN users can access the admin panel.');
     if (user.role === 'KITCHEN') {
       window.location.href = '../kitchen/orders.html';
     } else {
@@ -117,7 +118,7 @@ async function initAdminProductsPage() {
         );
       });
 
-    // Initial: jab tak koi category select nahi, sirf Regular
+    // Initial: when no category selected, show only Regular
     updateAddProductSizeVisibility(
       '',
       sizeRegularGroup,
@@ -136,7 +137,7 @@ async function initAdminProductsPage() {
   loadAdminProducts();
 }
 
-// Category ke hisaab se size fields show/hide
+// Category wise show/hide size fields
 function updateAddProductSizeVisibility(
   categoryLabel,
   regularGroup,
@@ -147,9 +148,8 @@ function updateAddProductSizeVisibility(
 
   const label = (categoryLabel || '').toLowerCase();
 
-  const isPizza = label.includes('pizza'); // simple logic
+  const isPizza = label.includes('pizza');
 
-  // Regular hamesha dikhana
   regularGroup.style.display = 'block';
 
   if (isPizza) {
@@ -158,7 +158,6 @@ function updateAddProductSizeVisibility(
   } else {
     mediumGroup.style.display = 'none';
     largeGroup.style.display = 'none';
-    // Non-pizza ke liye medium/large values clear kar do
     const medInput = mediumGroup.querySelector('input');
     const lgInput = largeGroup.querySelector('input');
     if (medInput) medInput.value = '';
@@ -186,19 +185,16 @@ async function loadAdminProducts() {
     const res = await Api.get('/admin/products');
     let products = res.products || [];
 
-    // Categories list
     const cats = Array.from(
       new Set(products.map(p => p.category).filter(Boolean))
     );
 
-    // Filter dropdown
     if (catSelect) {
       catSelect.innerHTML =
         '<option value="">All Categories</option>' +
         cats.map(c => `<option value="${c}">${c}</option>`).join('');
     }
 
-    // Add-product category select
     const addCatSelect = document.getElementById('admin-add-category-select');
     if (addCatSelect) {
       addCatSelect.innerHTML =
@@ -238,7 +234,7 @@ async function loadAdminProducts() {
     products.forEach(p => {
       const tr = document.createElement('tr');
 
-            const sizes = p.sizes || [];
+      const sizes = p.sizes || [];
       const findPrice = sizeName => {
         const s = sizes.find(s => s.name === sizeName);
         return s ? s.price : '';
@@ -287,7 +283,6 @@ async function loadAdminProducts() {
       tbody.appendChild(tr);
     });
 
-    // Actions
     tbody.querySelectorAll('[data-toggle-product]').forEach(btn => {
       btn.addEventListener('click', () => {
         const id = btn.dataset.toggleProduct;
@@ -306,7 +301,8 @@ async function loadAdminProducts() {
   } catch (err) {
     console.error('Admin load products error', err);
     loadingEl.textContent =
-      err.message || 'Menu items load nahi ho paaye, thodi der baad try karein.';
+      err.message ||
+      'Unable to load menu items. Please try again after some time.';
   }
 }
 
@@ -317,14 +313,14 @@ async function handleToggleProductAvailability(id, makeAvailable) {
     });
     loadAdminProducts();
   } catch (err) {
-    alert(err.message || 'Availability update nahi ho paayi.');
+    alert(err.message || 'Unable to update availability status.');
   }
 }
 
 async function handleDeleteProduct(id) {
   if (
     !confirm(
-      'Kya aap is product ko disable/delete karna chahte hain? Purane orders par koi effect nahi padega.'
+      'Are you sure you want to disable/delete this product? Existing orders will not be affected.'
     )
   ) {
     return;
@@ -334,13 +330,14 @@ async function handleDeleteProduct(id) {
     await Api.delete(`/admin/products/${id}`);
     loadAdminProducts();
   } catch (err) {
-    alert(err.message || 'Product delete nahi ho saka.');
+    alert(err.message || 'Unable to delete this product.');
   }
 }
 
 async function handleAddProduct(e) {
   e.preventDefault();
   const form = e.target;
+  const name = form.name.value.trim();
   const description = form.description.value.trim();
   const imageUrl = form.imageUrl ? form.imageUrl.value.trim() : '';
   const isVeg = form.isVeg.value === 'true';
@@ -359,7 +356,7 @@ async function handleAddProduct(e) {
   }
 
   if (!name || !category) {
-    alert('Name aur Category required hain.');
+    alert('Name and Category are required.');
     return;
   }
 
@@ -368,7 +365,7 @@ async function handleAddProduct(e) {
   const priceLarge = Number(form.priceLarge.value || 0);
 
   if (!priceRegular && !priceMedium && !priceLarge) {
-    alert('Kam se kam ek size ka price dena zaroori hai.');
+    alert('Please enter a price for at least one size.');
     return;
   }
 
@@ -381,7 +378,7 @@ async function handleAddProduct(e) {
     name,
     category,
     description,
-    image: '',
+    image: imageUrl || '',
     isVeg,
     isAvailable: true,
     sizes,
@@ -399,7 +396,6 @@ async function handleAddProduct(e) {
     await Api.post('/admin/products', productBody);
     form.reset();
 
-    // Category + size view reset
     if (addCatSelect) addCatSelect.value = '';
     if (addCatCustom) {
       addCatCustom.value = '';
@@ -415,7 +411,7 @@ async function handleAddProduct(e) {
     loadAdminProducts();
   } catch (err) {
     console.error('Add product error', err);
-    alert(err.message || 'Naya product add nahi ho saka.');
+    alert(err.message || 'Unable to add the new product.');
   }
 }
 
@@ -441,12 +437,11 @@ async function loadAdminOverview() {
   } catch (err) {
     console.error('Admin overview error', err);
     alert(
-      err.message || 'Overview load nahi ho paaya, thodi der baad try karein.'
+      err.message ||
+        'Unable to load overview. Please try again after some time.'
     );
   }
 }
-
-// ====================== ORDERS (admin/orders.html) ======================
 
 // ====================== ORDERS (admin/orders.html) ======================
 
@@ -532,7 +527,6 @@ async function loadAdminOrders(page = 1) {
       tbody.appendChild(tr);
     });
 
-    // Delete buttons
     tbody.querySelectorAll('.admin-order-delete-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const id = btn.dataset.id;
@@ -542,16 +536,17 @@ async function loadAdminOrders(page = 1) {
   } catch (err) {
     console.error('Admin load orders error', err);
     loadingEl.textContent =
-      err.message || 'Orders load nahi ho paaye, thodi der baad try karein.';
+      err.message ||
+      'Unable to load orders. Please try again after some time.';
   }
 }
 
 async function deleteAdminOrder(id, onDone) {
   if (
     !confirm(
-      `Kya aap order ${String(id).slice(
+      `Are you sure you want to permanently delete order ${String(id).slice(
         -6
-      )} ko permanently delete karna chahte hain?`
+      )}?`
     )
   ) {
     return;
@@ -562,7 +557,7 @@ async function deleteAdminOrder(id, onDone) {
     onDone && onDone();
   } catch (err) {
     console.error('Admin delete order error', err);
-    alert(err.message || 'Order delete nahi ho paaya.');
+    alert(err.message || 'Unable to delete the order.');
   }
 }
 
@@ -615,7 +610,7 @@ async function loadAdminCustomers() {
     console.error('Admin load customers error', err);
     loadingEl.textContent =
       err.message ||
-      'Customers load nahi ho paaye, thodi der baad dobara try karein.';
+      'Unable to load customers. Please try again after some time.';
   }
 }
 
@@ -705,13 +700,20 @@ async function loadAdminDeliveryRules() {
         handleChangeProductImage(id, currentUrl);
       });
     });
+  } catch (err) {
+    console.error('Admin load rules error', err);
+    loadingEl.textContent =
+      err.message || 'Unable to load delivery rules.';
+  }
+}
+
 async function handleChangeProductImage(id, currentUrl) {
   const newUrl = window.prompt(
-    'Image URL enter karein (blank rakhne se image hata di jayegi):',
+    'Enter image URL (leave blank to remove the image):',
     currentUrl || ''
   );
 
-  if (newUrl === null) return; // user ne cancel kiya
+  if (newUrl === null) return; // user cancelled
 
   const body = { image: newUrl.trim() || '' };
 
@@ -719,13 +721,7 @@ async function handleChangeProductImage(id, currentUrl) {
     await Api.put(`/admin/products/${id}`, body);
     loadAdminProducts();
   } catch (err) {
-    alert(err.message || 'Image update nahi ho paayi.');
-  }
-}
-  } catch (err) {
-    console.error('Admin load rules error', err);
-    loadingEl.textContent =
-      err.message || 'Delivery rules load nahi ho paaye.';
+    alert(err.message || 'Unable to update the image.');
   }
 }
 
@@ -739,9 +735,9 @@ async function handleSaveRule(id) {
 
   try {
     await Api.put(`/admin/delivery-rules/${id}`, body);
-    alert('Rule saved.');
+    alert('Rule saved successfully.');
   } catch (err) {
-    alert(err.message || 'Rule save nahi ho saka.');
+    alert(err.message || 'Unable to save the rule.');
   }
 }
 
@@ -750,7 +746,7 @@ async function handleToggleRule(id) {
     await Api.patch(`/admin/delivery-rules/${id}/toggle`, {});
     loadAdminDeliveryRules();
   } catch (err) {
-    alert(err.message || 'Rule toggle nahi ho saka.');
+    alert(err.message || 'Unable to toggle this rule.');
   }
 }
 
@@ -773,9 +769,10 @@ async function handleAddRule(e) {
     form.reset();
     loadAdminDeliveryRules();
   } catch (err) {
-    alert(err.message || 'Naya rule create nahi ho saka.');
+    alert(err.message || 'Unable to create the new rule.');
   }
 }
+
 // ====================== COUPONS (admin/coupons.html) ======================
 
 async function initAdminCouponsPage() {
@@ -848,8 +845,8 @@ async function loadAdminCoupons() {
           c.maxDiscount || 0
         }" data-field="maxDiscount" data-id="${c._id}" /></td>
         <td><input type="text" value="${daysStr}" data-field="daysOfWeek" data-id="${
-          c._id
-        }" placeholder="0,1,2..." /></td>
+        c._id
+      }" placeholder="0,1,2..." /></td>
         <td><input type="text" value="${timeStr}" data-field="timeWindow" data-id="${
         c._id
       }" placeholder="14-16" /></td>
@@ -886,7 +883,7 @@ async function loadAdminCoupons() {
   } catch (err) {
     console.error('Admin load coupons error', err);
     loadingEl.textContent =
-      err.message || 'Coupons load nahi ho paaye, thodi der baad try karein.';
+      err.message || 'Unable to load coupons. Please try again later.';
   }
 }
 
@@ -929,7 +926,11 @@ async function handleSaveCoupon(id) {
     const field = input.dataset.field;
     let value = input.value;
 
-    if (field === 'amount' || field === 'minCartAmount' || field === 'maxDiscount') {
+    if (
+      field === 'amount' ||
+      field === 'minCartAmount' ||
+      field === 'maxDiscount'
+    ) {
       body[field] = Number(value || 0);
     } else if (field === 'discountType') {
       body[field] = value;
@@ -946,10 +947,10 @@ async function handleSaveCoupon(id) {
 
   try {
     await Api.put(`/admin/coupons/${id}`, body);
-    alert('Coupon updated.');
+    alert('Coupon updated successfully.');
     loadAdminCoupons();
   } catch (err) {
-    alert(err.message || 'Coupon update nahi ho saka.');
+    alert(err.message || 'Unable to update the coupon.');
   }
 }
 
@@ -958,7 +959,7 @@ async function handleToggleCoupon(id) {
     await Api.patch(`/admin/coupons/${id}/toggle`, {});
     loadAdminCoupons();
   } catch (err) {
-    alert(err.message || 'Coupon toggle nahi ho saka.');
+    alert(err.message || 'Unable to toggle this coupon.');
   }
 }
 
@@ -977,7 +978,7 @@ async function handleAddCoupon(e) {
   const timeWindow = parseTimeWindow(form.timeWindow.value.trim());
 
   if (!code || !amount) {
-    alert('Code aur amount required hain.');
+    alert('Coupon code and amount are required.');
     return;
   }
 
@@ -998,6 +999,6 @@ async function handleAddCoupon(e) {
     form.reset();
     loadAdminCoupons();
   } catch (err) {
-    alert(err.message || 'Naya coupon create nahi ho saka.');
+    alert(err.message || 'Unable to create the new coupon.');
   }
 }

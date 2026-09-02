@@ -17,14 +17,20 @@ document.addEventListener('DOMContentLoaded', () => {
 async function requireKitchenRole() {
   const user = Api.getStoredUser();
   if (!user || !Api.getToken()) {
-    alert('Kitchen access ke liye pehle login karein (kitchen/admin account).');
+    alert(
+      'Please log in with an admin or kitchen account to access the kitchen panel.'
+    );
     window.location.href = '../login.html';
     return false;
   }
 
   if (user.role !== 'KITCHEN' && user.role !== 'ADMIN') {
-    alert('Sirf Kitchen ya Admin user hi is page ko access kar sakte hain.');
-    window.location.href = '../index.html';
+    alert('Only ADMIN or KITCHEN users can access the kitchen panel.');
+    if (user.role === 'KITCHEN') {
+      window.location.href = '../kitchen/orders.html';
+    } else {
+      window.location.href = '../index.html';
+    }
     return false;
   }
 
@@ -268,6 +274,7 @@ async function loadKitchenOrders(filter, els, fromSocket) {
         </div>
       `;
 
+      // Status buttons
       card.querySelectorAll('.kitchen-status-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           const newStatus = btn.dataset.status;
@@ -277,6 +284,7 @@ async function loadKitchenOrders(filter, els, fromSocket) {
         });
       });
 
+      // Details button
       card
         .querySelector('.order-view-btn')
         .addEventListener('click', () => {
@@ -288,6 +296,7 @@ async function loadKitchenOrders(filter, els, fromSocket) {
           window.location.href = target;
         });
 
+      // Delete button
       const deleteBtn = card.querySelector('.kitchen-delete-btn');
       if (deleteBtn) {
         deleteBtn.addEventListener('click', () => {
@@ -302,7 +311,7 @@ async function loadKitchenOrders(filter, els, fromSocket) {
   } catch (err) {
     console.error('Kitchen load error', err);
     loadingEl.textContent =
-      err.message || 'Orders load nahi ho paaye, thodi der baad try karein.';
+      err.message || 'Unable to load orders. Please try again later.';
   } finally {
     loadingEl.style.display = 'none';
   }
@@ -337,9 +346,9 @@ function renderKitchenActions(status, deliveryType) {
 async function updateOrderStatus(id, newStatus, onDone) {
   if (
     !confirm(
-      `Kya aap order ${String(id).slice(
+      `Are you sure you want to change order ${String(id).slice(
         -6
-      )} ka status "${newStatus.replace(/_/g, ' ')}" karna chahte hain?`
+      )} status to "${newStatus.replace(/_/g, ' ')}"?`
     )
   ) {
     return;
@@ -349,17 +358,17 @@ async function updateOrderStatus(id, newStatus, onDone) {
     await Api.patch(`/orders/${id}/status`, { status: newStatus });
     onDone && onDone();
   } catch (err) {
-    alert(err.message || 'Status update nahi ho paaya.');
+    alert(err.message || 'Unable to update order status.');
   }
 }
 
-// 🔴 Delete helper
+// Delete helper
 async function deleteOrder(id, onDone) {
   if (
     !confirm(
-      `Kya aap order ${String(id).slice(
+      `Are you sure you want to permanently delete order ${String(id).slice(
         -6
-      )} ko permanently delete karna chahte hain?`
+      )}?`
     )
   ) {
     return;
@@ -370,7 +379,7 @@ async function deleteOrder(id, onDone) {
     onDone && onDone();
   } catch (err) {
     console.error('deleteOrder error', err);
-    alert(err.message || 'Order delete nahi ho paaya.');
+    alert(err.message || 'Unable to delete the order.');
   }
 }
 
@@ -391,7 +400,7 @@ async function initKitchenOrderDetailPage() {
 
   if (!id) {
     alert(
-      'Order ID missing hai. Pehle Kitchen Orders page se kisi order par "Details" dabayein.'
+      'Order ID is missing. Please open this page from the Kitchen Orders screen.'
     );
     window.location.href = 'orders.html';
     return;
@@ -406,7 +415,7 @@ async function initKitchenOrderDetailPage() {
     const res = await Api.get(`/orders/${id}`);
     const order = res.order;
     if (!order) {
-      loadingEl.textContent = 'Order not found';
+      loadingEl.textContent = 'Order not found.';
       return;
     }
 
@@ -455,7 +464,7 @@ async function initKitchenOrderDetailPage() {
   } catch (err) {
     console.error('Kitchen order detail error', err);
     loadingEl.textContent =
-      err.message || 'Order details load nahi ho paaye.';
+      err.message || 'Unable to load order details right now.';
   } finally {
     loadingEl.style.display = 'none';
   }

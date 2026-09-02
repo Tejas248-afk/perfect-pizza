@@ -8,7 +8,7 @@ let latestPreview = null;
 let previewTimeout = null;
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Agar yeh page nahi hai to kuch mat karo
+  // If this page does not have a place-order button, do nothing
   if (!document.getElementById('place-order-btn')) {
     return;
   }
@@ -23,13 +23,13 @@ function initCheckoutPage() {
   const cartItems = Cart.getItems();
 
   if (!cartItems.length) {
-    alert('Cart khali hai. Pehle pizza add karein.');
+    alert('Your cart is empty. Please add a pizza first.');
     window.location.href = 'menu.html';
     return;
   }
 
   if (!Api.getToken()) {
-    alert('Checkout ke liye login zaroori hai.');
+    alert('Please log in to proceed to checkout.');
     window.location.href = 'login.html';
     return;
   }
@@ -55,7 +55,7 @@ function initCheckoutPage() {
     });
   } else {
     console.warn(
-      'Checkout: deliveryType radios ya delivery-address-section nahi mila'
+      'Checkout: deliveryType radios or delivery-address-section not found'
     );
   }
 
@@ -64,7 +64,7 @@ function initCheckoutPage() {
   if (useLocationBtn) {
     useLocationBtn.addEventListener('click', handleUseLocation);
   } else {
-    console.warn('Checkout: #use-location-btn element nahi mila');
+    console.warn('Checkout: #use-location-btn element not found');
   }
 
   // ----- Place order button -----
@@ -72,7 +72,7 @@ function initCheckoutPage() {
   if (placeOrderBtn) {
     placeOrderBtn.addEventListener('click', handlePlaceOrder);
   } else {
-    console.warn('Checkout: #place-order-btn element nahi mila');
+    console.warn('Checkout: #place-order-btn element not found');
   }
 
   // ----- Rewards input -----
@@ -83,7 +83,7 @@ function initCheckoutPage() {
       schedulePreview();
     });
   } else {
-    console.warn('Checkout: #coins-to-use element nahi mila');
+    console.warn('Checkout: #coins-to-use element not found');
   }
 
   // ----- Coupon apply button -----
@@ -150,7 +150,7 @@ function renderCheckoutItems(items) {
       </div>
     `;
 
-  container.appendChild(row);
+    container.appendChild(row);
   });
 
   subtotalEl.textContent = `₹${subtotal.toFixed(0)}`;
@@ -175,20 +175,20 @@ async function loadRewardsAndPreview() {
 
     if (infoEl) {
       if (rewardsInfo.availableCoins > 0) {
-        infoEl.textContent = `Aapke paas ${
+        infoEl.textContent = `You have ${
           rewardsInfo.availableCoins
-        } coins hain (value ₹${rewardsInfo.rupeeValue.toFixed(
+        } coins (value ₹${rewardsInfo.rupeeValue.toFixed(
           0
         )}). 2 coins = ₹1 discount.`;
       } else {
         infoEl.textContent =
-          'Abhi aapke paas 0 reward coins hain. ₹100 se upar ke order par 20 coins milenge.';
+          'You currently have 0 reward coins. Orders above ₹100 will earn 20 coins.';
       }
     }
   } catch (err) {
     console.error('Rewards load error', err);
     if (infoEl) {
-      infoEl.textContent = 'Reward balance load nahi ho paaya.';
+      infoEl.textContent = 'Could not load reward balance.';
     }
   } finally {
     schedulePreview();
@@ -220,7 +220,6 @@ async function refreshOrderPreview() {
   const couponInput = document.getElementById('coupon-code');
   const couponCode = couponInput ? couponInput.value.trim() : '';
 
-  // NEW: outletId (multi-outlet support)
   const outletId = localStorage.getItem('pp_outlet_id') || null;
 
   if (deliveryType === 'DELIVERY') {
@@ -248,7 +247,7 @@ async function refreshOrderPreview() {
   }));
 
   const payload = {
-    outletId, // <--- yahan se backend ko outlet milega
+    outletId,
     items: itemsForBackend,
     deliveryType,
     address: deliveryType === 'DELIVERY' ? address : '',
@@ -378,7 +377,7 @@ function updateCheckoutSummary(previewOrder) {
 async function handlePlaceOrder() {
   const cartItems = Cart.getItems();
   if (!cartItems.length) {
-    alert('Cart khali hai.');
+    alert('Your cart is empty.');
     window.location.href = 'menu.html';
     return;
   }
@@ -387,12 +386,12 @@ async function handlePlaceOrder() {
     'input[name="deliveryType"]:checked'
   );
   if (!deliveryTypeRadio) {
-    alert('Delivery type select karein.');
+    alert('Please select a delivery type.');
     return;
   }
   const deliveryType = deliveryTypeRadio.value;
 
-  // NEW: payment method
+  // Payment method
   const paymentRadio = document.querySelector(
     'input[name="paymentMethod"]:checked'
   );
@@ -409,12 +408,12 @@ async function handlePlaceOrder() {
 
   if (deliveryType === 'DELIVERY') {
     if (!address) {
-      alert('Delivery address daalna zaroori hai.');
+      alert('Please enter a delivery address.');
       return;
     }
     if (!latVal || !lngVal) {
       alert(
-        'Latitude/Longitude missing hain. "Use current location" dabayein ya manually daalein.'
+        'Latitude/Longitude is missing. Please click "Use current location" or enter it manually.'
       );
       return;
     }
@@ -454,7 +453,7 @@ async function handlePlaceOrder() {
 
   try {
     if (paymentMethod === 'COD') {
-      // ---- COD old flow ----
+      // COD flow
       const res = await Api.post('/orders/cod', payload);
 
       Cart.clear();
@@ -469,18 +468,18 @@ async function handlePlaceOrder() {
       return;
     }
 
-    // ---- PAYU ONLINE PAYMENT FLOW ----
+    // Online (PayU) flow
     const res = await Api.post('/payment/payu/init', payload);
     // res: { orderId, payuUrl, params, hash }
 
     const { payuUrl, params, hash } = res;
 
     if (!payuUrl || !params || !hash) {
-      alert('Payment init failed, please try again.');
+      alert('Failed to initiate online payment. Please try again.');
       return;
     }
 
-    // Hidden form banake PayU pe redirect
+    // Hidden form → PayU redirect
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = payuUrl;
@@ -498,7 +497,6 @@ async function handlePlaceOrder() {
 
     document.body.appendChild(form);
 
-    // Online payment ke liye bhi cart clear kar sakte ho
     Cart.clear();
 
     form.submit();
@@ -506,7 +504,7 @@ async function handlePlaceOrder() {
     console.error('Create order / payment error', err);
     alert(
       err.message ||
-        'Order place nahi ho paaya, thodi der baad dobara try karein.'
+        'We were unable to place your order. Please try again after some time.'
     );
   } finally {
     btn.disabled = false;
