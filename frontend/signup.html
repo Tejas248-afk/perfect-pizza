@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Sign up - Perfect Pizza</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="navbar">
+    <div class="navbar-inner">
+      <a href="index.html" class="nav-logo">
+        <span>🍕 Perfect <span class="dot">Pizza</span></span>
+      </a>
+      <nav class="nav-links">
+        <a href="menu.html">Menu</a>
+        <a href="login.html">Login</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="auth-card">
+      <h1>Create account</h1>
+      <p class="subtitle">
+        Ab Perfect Pizza par customer signup/login mobile OTP se hota hai.
+      </p>
+
+      <p class="text-small" style="margin-top: 1rem">
+        Apna mobile number daal kar OTP ke through turant account bana sakte
+        hain.
+      </p>
+
+      <button
+        type="button"
+        class="btn btn-primary"
+        style="width: 100%; margin-top: 1.5rem"
+        onclick="window.location.href='login.html'"
+      >
+        Continue to Login (OTP)
+      </button>
+    </div>
+  </main>
+
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+</body>
+</html>

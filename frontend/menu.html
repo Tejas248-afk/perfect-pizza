@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+
+  <title>Menu - Perfect Pizza</title>
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
+
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+
+<body>
+  <header class="navbar">
+    <div class="navbar-inner">
+      <a href="index.html" class="nav-logo">
+        <span>
+          🍕 Perfect <span class="dot">Pizza</span>
+        </span>
+      </a>
+
+     <nav class="nav-links">
+  <a href="menu.html">Menu</a>
+  
+
+  <a href="cart.html" class="cart-link">
+    Cart
+    <span class="cart-count" data-cart-count>0</span>
+  </a>
+
+  <a href="login.html" data-login-link>Login</a>
+  <a href="#" data-logout-link style="display:none">Logout</a>
+
+  <button
+    type="button"
+    class="profile-btn"
+    data-profile-btn
+    title="My Profile"
+    style="display:none"
+  >
+    <span class="profile-initial" data-profile-initial>U</span>
+  </button>
+
+  <span class="text-small" data-user-name></span>
+</nav>
+    </div>
+  </header>
+   <main class="container">
+    <p
+      class="text-small"
+      style="color:#555;margin:0 0 0.5rem"
+    >
+      Serving from:
+      <strong data-outlet-name>
+        Perfect Pizza – Singhpur Chauraha, Kalyanpur
+      </strong>
+    </p>
+
+  <main class="container">
+    <section class="menu-header">
+      <div>
+        <h1>Perfect Pizza Menu</h1>
+        <p class="menu-subtitle">
+          Apna size, crust aur favourite add-ons select karein.
+        </p>
+      </div>
+
+      <div class="menu-filters">
+        <input
+          type="search"
+          id="search-input"
+          placeholder="Search pizza..."
+          aria-label="Search pizza"
+        />
+
+        <select
+          id="category-select"
+          aria-label="Filter by category"
+        >
+          <option value="">All Categories</option>
+        </select>
+      </div>
+    </section>
+
+    <div id="menu-loading" class="loading">
+      Loading menu...
+    </div>
+
+    <div
+      id="menu-empty"
+      class="empty-state"
+      style="display: none"
+    >
+      No pizzas available right now.
+    </div>
+
+    <section
+      id="product-list"
+      class="product-grid"
+    ></section>
+  </main>
+  
+  <script src="js/outlet.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/cart.js"></script>
+  <script src="js/menu.js"></script>
+</body>
+</html>

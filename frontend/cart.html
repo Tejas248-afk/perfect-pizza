@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+
+  <title>Your Cart - Perfect Pizza</title>
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
+
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+
+<body>
+  <header class="navbar">
+    <div class="navbar-inner">
+      <a href="index.html" class="nav-logo">
+        <span>
+          🍕 Perfect <span class="dot">Pizza</span>
+        </span>
+      </a>
+
+      <nav class="nav-links">
+  <a href="menu.html">Menu</a>
+
+  
+
+  <a href="cart.html" class="cart-link">
+    Cart
+    <span class="cart-count" data-cart-count>0</span>
+  </a>
+
+  <a href="login.html" data-login-link>Login</a>
+  <a href="#" data-logout-link style="display: none">Logout</a>
+  <span class="text-small" data-user-name></span>
+</nav>    </div>
+  </header>
+
+  <main class="container cart-page">
+    <div class="page-heading">
+      <div>
+        <h1>Your Cart</h1>
+        <p>
+          Checkout se pehle customization aur quantity check kar lo.
+        </p>
+      </div>
+
+      <a href="menu.html" class="btn btn-secondary">
+        + Add More Items
+      </a>
+    </div>
+
+    <section
+      id="cart-empty"
+      class="empty-state cart-empty-state"
+      style="display: none"
+    >
+      <div class="empty-icon">🛒</div>
+      <h2>Your cart is empty</h2>
+      <p>Apna favourite pizza add karke order start karo.</p>
+
+      <a href="menu.html" class="btn btn-primary">
+        Browse Menu
+      </a>
+    </section>
+
+    <div
+      id="cart-content"
+      class="cart-layout"
+      style="display: none"
+    >
+      <section id="cart-items" class="cart-items"></section>
+
+      <aside class="cart-summary">
+        <h2>Cart Summary</h2>
+
+        <div class="summary-row">
+          <span>Total items</span>
+          <strong id="cart-item-count">0</strong>
+        </div>
+
+        <div class="summary-row summary-total">
+          <span>Subtotal</span>
+          <strong id="cart-subtotal">₹0</strong>
+        </div>
+
+        <p class="summary-note">
+          Delivery fee aur reward discount checkout par calculate hoga.
+        </p>
+
+        <button
+          type="button"
+          id="checkout-btn"
+          class="btn btn-primary full-width-btn"
+        >
+          Continue to Checkout
+        </button>
+
+        <button
+          type="button"
+          id="clear-cart-btn"
+          class="btn btn-danger-outline full-width-btn"
+        >
+          Clear Cart
+        </button>
+      </aside>
+    </div>
+  </main>
+
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/cart.js"></script>
+</body>
+</html>

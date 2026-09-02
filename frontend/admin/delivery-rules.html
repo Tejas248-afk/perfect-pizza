@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin Delivery Rules - Perfect Pizza</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+<header class="navbar">
+  <div class="navbar-inner">
+    <div class="nav-logo">
+      <span>🍕 Perfect <span class="dot">Pizza</span> Admin</span>
+    </div>
+    <nav class="nav-links">
+  <a href="/admin/products.html">Menu Items</a>
+  <a href="/admin/customers.html">Customers</a>
+  <a href="/admin/delivery-rules.html">Delivery Rules</a>
+  <a href="/admin/coupons.html">Coupons</a>
+
+  <a href="/login.html" data-login-link>Login</a>
+  <a href="#" data-logout-link style="display:none">Logout</a>
+  <span class="text-small" data-user-name></span>
+</nav>
+  </div>
+</header>
+
+  <main class="container">
+    <div class="page-heading">
+      <div>
+        <h1>Delivery Rules</h1>
+        <p>Distance-based delivery charges and free-delivery thresholds.</p>
+      </div>
+    </div>
+
+    <section class="order-section">
+      <h2 style="margin-top:0">Existing Rules</h2>
+
+      <div id="admin-rules-loading" class="loading">
+        Loading rules...
+      </div>
+      <div
+        id="admin-rules-empty"
+        class="empty-state"
+        style="display:none"
+      >
+        <p>No delivery rules configured.</p>
+      </div>
+
+      <table
+        id="admin-delivery-rules-table"
+        class="text-small"
+        style="width:100%;border-collapse:collapse;margin-bottom:1rem"
+      >
+        <thead>
+          <tr>
+            <th>Min KM</th>
+            <th>Max KM</th>
+            <th>Free from ₹</th>
+            <th>Fee ₹</th>
+            <th>Status</th>
+            <th>Save</th>
+          </tr>
+        </thead>
+        <tbody id="admin-rules-body"></tbody>
+      </table>
+
+      <h2 style="margin-top:1rem;font-size:1rem">Add New Rule</h2>
+      <form
+        id="admin-add-rule-form"
+        class="menu-filters"
+        style="align-items:flex-end;margin-top:0.5rem"
+      >
+        <div class="form-field">
+          <label>Min KM</label>
+          <input
+            type="number"
+            name="minDistance"
+            step="0.1"
+            min="0"
+            placeholder="0"
+          />
+        </div>
+        <div class="form-field">
+          <label>Max KM</label>
+          <input
+            type="number"
+            name="maxDistance"
+            step="0.1"
+            min="0"
+            placeholder="5"
+          />
+        </div>
+        <div class="form-field">
+          <label>Free from ₹</label>
+          <input
+            type="number"
+            name="minCartValueForFreeDelivery"
+            min="0"
+            placeholder="399"
+          />
+        </div>
+        <div class="form-field">
+          <label>Fee ₹</label>
+          <input
+            type="number"
+            name="baseDeliveryFee"
+            min="0"
+            placeholder="40"
+          />
+        </div>
+        <button type="submit" class="btn btn-primary">
+          Add Rule
+        </button>
+      </form>
+    </section>
+  </main>
+
+  <script src="../js/api.js"></script>
+  <script src="../js/auth.js"></script>
+  <script src="../js/admin.js"></script>
+</body>
+</html>

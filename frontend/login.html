@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Login - Perfect Pizza</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="navbar">
+    <div class="navbar-inner">
+      <a href="index.html" class="nav-logo">
+        <span>🍕 Perfect <span class="dot">Pizza</span></span>
+      </a>
+      <nav class="nav-links">
+        <a href="menu.html">Menu</a>
+        <a href="signup.html">Sign up</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="auth-card">
+      <h1>Login / Sign up</h1>
+      <p class="subtitle">
+        Customers ke liye mobile OTP, staff (Admin/Kitchen) ke liye password.
+      </p>
+
+      <div class="auth-toggle">
+        <button
+          type="button"
+          class="auth-toggle-btn active"
+          data-auth-mode="customer"
+        >
+          Customer (OTP)
+        </button>
+        <button
+          type="button"
+          class="auth-toggle-btn"
+          data-auth-mode="staff"
+        >
+          Staff (Admin / Kitchen)
+        </button>
+      </div>
+
+      <!-- CUSTOMER OTP PANEL -->
+      <section id="customer-auth-panel">
+        <div
+          id="customer-error"
+          class="alert alert-error"
+          style="display: none"
+        ></div>
+
+        <div class="form-field">
+          <label for="customer-contact">Mobile Number</label>
+          <input
+            type="text"
+            id="customer-contact"
+            name="customer-contact"
+            placeholder="e.g. 988929xxxx"
+            autocomplete="tel"
+          />
+        </div>
+
+        <button
+          type="button"
+          id="customer-send-otp-btn"
+          class="btn btn-primary"
+          style="width: 100%"
+        >
+          Send OTP
+        </button>
+
+        <div
+          id="customer-otp-section"
+          style="margin-top: 1rem; display: none"
+        >
+          <div class="form-field">
+            <label for="customer-otp">Enter OTP</label>
+            <input
+              type="text"
+              id="customer-otp"
+              name="customer-otp"
+              placeholder="6-digit OTP"
+              maxlength="6"
+              autocomplete="one-time-code"
+            />
+          </div>
+
+          <button
+            type="button"
+            id="customer-verify-otp-btn"
+            class="btn btn-primary"
+            style="width: 100%"
+          >
+            Verify & Continue
+          </button>
+
+          <p class="text-center text-small" style="margin-top: 0.5rem">
+            OTP 5 minutes ke liye valid hai. Agar OTP nahi mila ho to kuch
+            seconds baad dobara try karein.
+          </p>
+        </div>
+      </section>
+
+      <!-- STAFF LOGIN PANEL -->
+      <section
+        id="staff-auth-panel"
+        style="display: none; margin-top: 1rem"
+      >
+        <div
+          id="staff-error"
+          class="alert alert-error"
+          style="display: none"
+        ></div>
+
+        <form id="staff-login-form">
+          <div class="form-field">
+            <label for="staff-contact">Mobile / Contact</label>
+            <input
+              type="text"
+              id="staff-contact"
+              name="staff-contact"
+              placeholder="e.g. 988929xxxx"
+              autocomplete="tel"
+            />
+          </div>
+          <div class="form-field">
+            <label for="staff-password">Password</label>
+            <input
+              type="password"
+              id="staff-password"
+              name="staff-password"
+              placeholder="Strong password"
+            />
+          </div>
+
+          <button
+            type="submit"
+            class="btn btn-primary"
+            style="width: 100%"
+          >
+            Login (Staff)
+          </button>
+        </form>
+
+        <p class="text-small" style="margin-top: 0.5rem; color: #777">
+          Ye login sirf Admin / Kitchen staff ke liye hai. Customers please
+          upar Customer (OTP) tab use karein.
+        </p>
+      </section>
+    </div>
+  </main>
+
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+</body>
+</html>

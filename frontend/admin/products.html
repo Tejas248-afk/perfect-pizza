@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin Menu Items - Perfect Pizza</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+  <!-- Common Admin Navbar -->
+  <header class="navbar">
+    <div class="navbar-inner">
+      <div class="nav-logo">
+        <span>🍕 Perfect <span class="dot">Pizza</span> Admin</span>
+      </div>
+      <nav class="nav-links">
+  <a href="/admin/products.html">Menu Items</a>
+  <a href="/admin/customers.html">Customers</a>
+  <a href="/admin/delivery-rules.html">Delivery Rules</a>
+  <a href="/admin/coupons.html">Coupons</a>
+
+  <a href="/login.html" data-login-link>Login</a>
+  <a href="#" data-logout-link style="display:none">Logout</a>
+  <span class="text-small" data-user-name></span>
+</nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="page-heading">
+      <div>
+        <h1>Menu Items</h1>
+        <p>
+          Perfect Pizza ka pura menu – pizzas, combos, sides. Availability
+          toggle karein ya simple naya item add karein.
+        </p>
+      </div>
+      <button class="btn btn-secondary" id="admin-products-reload">Reload</button>
+    </div>
+
+    <!-- Existing products -->
+    <section class="order-section">
+      <h2 style="margin-top:0">Existing Products</h2>
+
+      <div class="menu-filters" style="margin-bottom:0.5rem">
+        <input
+          type="search"
+          id="admin-product-search"
+          placeholder="Search by name or category (Enter)"
+        />
+        <select id="admin-product-filter-category">
+          <option value="">All Categories</option>
+        </select>
+        <select id="admin-product-filter-availability">
+          <option value="ALL">All</option>
+          <option value="AVAILABLE">Available only</option>
+          <option value="DISABLED">Disabled only</option>
+        </select>
+      </div>
+
+      <div id="admin-products-loading" class="loading">
+        Loading products...
+      </div>
+      <div
+        id="admin-products-empty"
+        class="empty-state"
+        style="display:none"
+      >
+        <p>No products found.</p>
+      </div>
+
+     <table
+  id="admin-products-table"
+  class="text-small"
+  style="width:100%;border-collapse:collapse;margin-top:0.5rem"
+>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Category</th>
+      <th>Image</th>
+      <th>Veg</th>
+      <th>Prices (R/M/L)</th>
+      <th>Available</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody id="admin-products-body"></tbody>
+</table>
+    </section>
+
+       <!-- Add new product -->
+    <section class="order-section" style="margin-top:1.25rem">
+      <h2 style="margin-top:0">Add New Item (Simple)</h2>
+      <p class="text-small" style="color:#555;margin-bottom:0.75rem">
+        Ye form basic pizza / combo / side ke liye hai. Ye default "Classic"
+        crust create karega, add-ons ke bina. Advanced customization ke liye
+        abhi seed script use kar rahe hain.
+      </p>
+      <form
+        id="admin-add-product-form"
+        class="menu-filters"
+        style="align-items:flex-end;flex-wrap:wrap;gap:0.75rem"
+      >
+        <div class="form-field">
+          <label>Name</label>
+          <input type="text" name="name" required />
+        </div>
+
+        <!-- CATEGORY: select + optional custom -->
+        <div class="form-field">
+          <label>Category</label>
+          <select
+            name="category"
+            id="admin-add-category-select"
+            required
+          >
+            <option value="">Select category</option>
+            <!-- JS se options fill honge -->
+          </select>
+          <input
+            type="text"
+            id="admin-add-category-custom"
+            placeholder="Custom category"
+            style="display:none;margin-top:0.3rem"
+          />
+        </div>
+
+        <div class="form-field">
+          <label>Description</label>
+          <input type="text" name="description" />
+        </div>
+
+        <div class="form-field">
+          <label>Veg?</label>
+          <select name="isVeg">
+            <option value="true">Veg</option>
+            <option value="false">Non-Veg</option>
+          </select>
+        </div>
+
+        <!-- SIZE FIELDS: JS inhe show/hide karega -->
+        <div class="form-field" id="admin-add-size-regular">
+          <label>Regular ₹</label>
+          <input type="number" name="priceRegular" min="0" />
+        </div>
+        <div class="form-field" id="admin-add-size-medium">
+          <label>Medium ₹</label>
+          <input type="number" name="priceMedium" min="0" />
+        </div>
+        <div class="form-field" id="admin-add-size-large">
+          <label>Large ₹</label>
+          <input type="number" name="priceLarge" min="0" />
+        </div>
+        <div class="form-field">
+  <label>Image URL</label>
+  <input
+    type="text"
+    name="imageUrl"
+    placeholder="https://example.com/pizza.jpg"
+  />
+</div>
+
+        <button type="submit" class="btn btn-primary">
+          Add Product
+        </button>
+      </form>
+    </section>
+  </main>
+
+  <script src="../js/api.js"></script>
+  <script src="../js/auth.js"></script>
+  <script src="../js/admin.js"></script>
+</body>
+</html>

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Checkout - Perfect Pizza</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="navbar">
+    <div class="navbar-inner">
+      <a href="index.html" class="nav-logo">
+        <span>🍕 Perfect <span class="dot">Pizza</span></span>
+      </a>
+      <nav class="nav-links">
+  <a href="menu.html">Menu</a>
+  
+  <a href="cart.html" class="cart-link">
+    Cart <span class="cart-count" data-cart-count>0</span>
+  </a>
+  <a href="login.html" data-login-link>Login</a>
+  <a href="#" data-logout-link style="display:none">Logout</a>
+  <span class="text-small" data-user-name></span>
+</nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="page-heading">
+      <div>
+        <h1>Checkout</h1>
+        <p>Delivery ya pickup choose karein aur order complete karein.</p>
+      </div>
+    </div>
+
+    <div class="cart-layout">
+      <section class="cart-items">
+        <h2>Your Items</h2>
+        <div id="checkout-items"></div>
+      </section>
+
+      <aside class="cart-summary">
+        <h2>Delivery & Summary</h2>
+
+        <!-- Delivery / Pickup -->
+        <div class="summary-section">
+          <div class="summary-row">
+            <label>
+              <input
+                type="radio"
+                name="deliveryType"
+                value="DELIVERY"
+                checked
+              />
+              Home Delivery
+            </label>
+          </div>
+          <div class="summary-row">
+            <label>
+              <input
+                type="radio"
+                name="deliveryType"
+                value="PICKUP"
+              />
+              Outlet Pickup (₹0 delivery)
+            </label>
+          </div>
+        </div>
+
+        <!-- Address + Location -->
+        <div id="delivery-address-section" class="summary-section">
+          <div class="form-field">
+            <label for="address">Delivery Address</label>
+            <input
+              type="text"
+              id="address"
+              placeholder="House no, street, area"
+            />
+          </div>
+          <div class="form-field">
+            <label for="landmark">Landmark (optional)</label>
+            <input
+              type="text"
+              id="landmark"
+              placeholder="Near..."
+            />
+          </div>
+          <div class="form-field">
+            <label>Location (lat / lng)</label>
+            <div style="display:flex;gap:0.5rem">
+              <input type="text" id="latitude" placeholder="Latitude" />
+              <input type="text" id="longitude" placeholder="Longitude" />
+            </div>
+            <!-- Yahi hai auto‑fetch button -->
+            <button
+              type="button"
+              id="use-location-btn"
+              class="btn btn-secondary full-width-btn"
+              style="margin-top:0.4rem"
+            >
+              Use current location
+            </button>
+            <small class="text-small" style="color:#777">
+              Note: Sirf 5 KM radius ke andar delivery available hai.
+            </small>
+          </div>
+        </div>
+
+                <!-- Coupon code -->
+        <div class="summary-section" id="coupon-section">
+          <h3 style="margin:0 0 0.3rem;font-size:0.95rem;">
+            Coupon Code
+          </h3>
+          <div class="form-field" style="display:flex;gap:0.5rem">
+            <input
+              type="text"
+              id="coupon-code"
+              placeholder="Enter coupon (e.g. PPNEW50)"
+              style="flex:1"
+            />
+            <button
+              type="button"
+              id="apply-coupon-btn"
+              class="btn btn-secondary"
+            >
+              Apply
+            </button>
+          </div>
+        </div>
+
+        <!-- Rewards -->
+        <div class="summary-section" id="rewards-section">
+          <h3
+            style="margin:0 0 0.3rem;font-size:0.95rem;"
+          >
+            Reward Coins
+          </h3>
+
+          <p
+            id="rewards-info"
+            class="text-small"
+            style="margin:0 0 0.4rem;color:#555;"
+          >
+            Loading your reward balance...
+          </p>
+
+          <div class="form-field">
+            <label for="coins-to-use">Coins to use this order</label>
+            <input
+              type="number"
+              id="coins-to-use"
+              min="0"
+              step="2"
+              value="0"
+            />
+          </div>
+        </div>
+
+        <!-- Amount summary -->
+       <div class="summary-row">
+  <span>Items subtotal</span>
+  <strong id="summary-subtotal">₹0</strong>
+</div>
+<div class="summary-row">
+  <span>Delivery fee</span>
+  <strong id="summary-delivery">—</strong>
+</div>
+<div class="summary-row">
+  <span>Offer discount</span>
+  <strong id="summary-offer">₹0</strong>
+</div>
+<div class="summary-row">
+  <span>Reward discount</span>
+  <strong id="summary-discount">₹0</strong>
+</div>
+<div class="summary-row">
+  <span>GST (5%)</span>
+  <strong id="summary-gst">₹0</strong>
+</div>
+<div class="summary-row summary-total">
+  <span>Grand total</span>
+  <strong id="summary-total">₹0</strong>
+</div>
+
+        <div class="payment-method-section">
+  <h3>Payment Method</h3>
+  <label>
+    <input type="radio" name="paymentMethod" value="COD" checked>
+    Cash on Delivery (COD)
+  </label>
+  <label>
+    <input type="radio" name="paymentMethod" value="PAYU">
+    Online Payment (PayU)
+  </label>
+</div>
+
+<button id="place-order-btn">Place Order</button>
+      </aside>
+    </div>
+  </main>
+  
+  <script src="js/outlet.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/cart.js"></script>
+  <script src="js/location.js"></script>
+  <script src="js/checkout.js"></script>
+</body>
+</html>
