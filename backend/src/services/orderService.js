@@ -160,6 +160,7 @@ async function buildOrderPreview({
 
   // ---------- OFFER DISCOUNT: BOGO TUESDAY ----------
   let offerDiscount = 0;
+  let bogoFreeCount = 0;
   try {
     // Use India time (IST) instead of server UTC time
     const now = new Date();
@@ -181,16 +182,17 @@ async function buildOrderPreview({
       isWithinBogoTime &&
       outlet.settings?.enableBogoTuesday !== false
     ) {
+      // Global BOGO: sab eligible pizzas ek sath count karte hain
+      const eligibleBases = []; // har eligible pizza ka base price (size + crust)
+
       for (const it of items) {
         const cat = (it.category || '').toLowerCase();
         const sizeName = (it.size?.name || '').toUpperCase();
 
-        // Eligible categories (Exotic Veg, Veg Special, etc.)
+        // ✅ ONLY Exotic Veg + Veg Special categories
         const eligibleCategory =
           cat.includes('exotic') ||
-          cat.includes('veg special') ||
-          cat.includes('pp special') ||
-          cat.includes('premium pizza');
+          cat.includes('veg special');
 
         // Only Medium & Large
         const eligibleSize =
@@ -198,15 +200,29 @@ async function buildOrderPreview({
 
         if (!eligibleCategory || !eligibleSize) continue;
 
-        // Base price = size + crust (add-ons free item me count nahi)
         const base =
           Number(it.size?.price || 0) + Number(it.crust?.price || 0);
-
         const qty = Number(it.quantity || 0);
-        const freeCount = Math.floor(qty / 2); // Buy 2 → 1 free; 4 → 2 free etc.
 
-        if (freeCount > 0 && base > 0) {
-          offerDiscount += base * freeCount;
+        if (base <= 0 || qty <= 0) continue;
+
+        // Har quantity ke liye base ko array me daalo
+        for (let i = 0; i < qty; i++) {
+          eligibleBases.push(base);
+        }
+      }
+
+      const totalEligibleQty = eligibleBases.length;
+      const freeCount = Math.floor(totalEligibleQty / 2); // 2 pe 1 free, 4 pe 2 free...
+
+      if (freeCount > 0) {
+        bogoFreeCount = freeCount;
+
+        // Cheapest pizzas free hone chahiye
+        eligibleBases.sort((a, b) => a - b);
+
+        for (let i = 0; i < freeCount; i++) {
+          offerDiscount += eligibleBases[i];
         }
       }
     }
@@ -308,7 +324,8 @@ async function buildOrderPreview({
     rewardDiscount: reward.discount,
     grandTotal,
     rewardCoinsEarned: reward.rewardCoinsEarned,
-    remainingRewardCoins: reward.remainingCoins
+    remainingRewardCoins: reward.remainingCoins,
+    bogoFreeCount
   };
 }
 

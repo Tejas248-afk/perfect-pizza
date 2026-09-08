@@ -62,11 +62,16 @@ async function resolveOutlet(requestOutletId) {
 }
 
 function ensureStoreOpen(outlet) {
+  // Use India time (IST) instead of server UTC
   const now = new Date();
-  const hour = now.getHours();
+  const istNow = new Date(
+    now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })
+  );
+  const hour = istNow.getHours();
 
-  const open = typeof outlet.openHour === 'number' ? outlet.openHour : 10;
-  const close = typeof outlet.closeHour === 'number' ? outlet.closeHour : 23;
+  // Fixed hours: 10 AM to 11 PM (daily)
+  const open = 10;
+  const close = 23;
 
   if (hour < open || hour >= close) {
     const err = new Error(
