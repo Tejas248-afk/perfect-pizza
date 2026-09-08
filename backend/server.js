@@ -10,13 +10,13 @@ const connectDB = require('./src/config/db');
 
 // Routes
 const authRoutes = require('./src/routes/authRoutes');
-const productRoutes = require('./src/routes/productRoutes');
 const orderRoutes = require('./src/routes/orderRoutes');
 const rewardRoutes = require('./src/routes/rewardRoutes');
 const adminRoutes = require('./src/routes/adminRoutes');
-const couponPublicRoutes = require('./routes/couponPublicRoutes');
+const productRoutes = require('./src/routes/productRoutes');
+const couponPublicRoutes = require('./src/routes/couponPublicRoutes'); // ✅ ALIAS ROUTE HERE
 
-// PayU controller + auth middleware ko direct yahan use karenge
+// PayU controller + auth middleware
 const paymentController = require('./src/controllers/paymentController');
 const authMiddleware = require('./src/middleware/authMiddleware');
 
@@ -25,16 +25,16 @@ const { initSocket } = require('./src/sockets/socket');
 const app = express();
 const server = http.createServer(app);
 
-// ---------- Global Middlewares (ROUTES SE PEHLE) ----------
+/* ---------- Global Middlewares (ROUTES SE PEHLE) ---------- */
 
-// Basic security headers
+// Security headers
 app.use(helmet());
 
-// MOST IMPORTANT: body parsers
+// Body parsers
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// CORS – frontend localhost allow
+// CORS
 const allowedOrigins = [
   process.env.CLIENT_URL || 'http://localhost:5500',
   'http://127.0.0.1:5500'
@@ -54,7 +54,7 @@ app.use(
 // Logging
 app.use(morgan('dev'));
 
-// Generic rate limiter for /api
+// Rate limiter for /api
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
@@ -63,12 +63,12 @@ const apiLimiter = rateLimit({
 });
 app.use('/api', apiLimiter);
 
-// ---------- MongoDB connect ----------
+/* ---------- MongoDB connect ---------- */
 connectDB();
 
-// ---------- Routes & Endpoints ----------
+/* ---------- Routes & Endpoints ---------- */
 
-
+// Root check
 app.get('/', (req, res) => {
   res.send('Perfect Pizza backend running. Try /api/health');
 });
@@ -80,11 +80,6 @@ app.get('/api/health', (req, res) => {
     message: 'Perfect Pizza API working',
     time: new Date().toISOString()
   });
-});
-
-// OPTIONAL: root path pe simple message
-app.get('/', (req, res) => {
-  res.send('Perfect Pizza backend running. Try /api/health');
 });
 
 // Auth routes
@@ -99,13 +94,13 @@ app.use('/api/orders', orderRoutes);
 // Reward routes
 app.use('/api/rewards', rewardRoutes);
 
+// Public coupons routes (active offers)
 app.use('/api/coupons', couponPublicRoutes);
-
 
 // Admin routes
 app.use('/api/admin', adminRoutes);
 
-// ---------- PayU Payment Routes (DIRECT) ----------
+/* ---------- PayU Payment Routes (DIRECT) ---------- */
 
 // Online payment start (user authenticated)
 app.post(
@@ -117,15 +112,15 @@ app.post(
 // PayU callback (no auth, PayU call karega)
 app.post('/api/payment/payu/callback', paymentController.handlePayuCallback);
 
-// ---------- Socket.IO init ----------
+/* ---------- Socket.IO init ---------- */
 initSocket(server);
 
-// 404 for unknown /api routes
+/* ---------- 404 for unknown /api routes ---------- */
 app.use('/api', (req, res) => {
   res.status(404).json({ message: 'API route not found' });
 });
 
-// Global error handler
+/* ---------- Global error handler ---------- */
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
   res
@@ -133,7 +128,7 @@ app.use((err, req, res, next) => {
     .json({ message: err.message || 'Server error. Please try again later.' });
 });
 
-// ---------- Start Server ----------
+/* ---------- Start Server ---------- */
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`Perfect Pizza backend running on port ${PORT}`);
