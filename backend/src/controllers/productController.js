@@ -1,126 +1,91 @@
+// src/controllers/paymentController.js
 const Joi = require('joi');
-const Product = require('../models/Product');
+const crypto = require('crypto');
+const Order = require('../models/Order');
+const Outlet = require('../models/Outlet');
+const User = require('../models/User');
+const { buildOrderPreview } = require('../services/orderService');
+const { emitNewOrder } = require('../sockets/socket');
 
-// ---------- Validation Schemas ----------
+const PAYU_KEY = process.env.PAYU_KEY;
+const PAYU_SALT = process.env.PAYU_SALT;
+const PAYU_BASE_URL = process.env.PAYU_BASE_URL || 'https://test.payu.in';
+const APP_BASE_URL = process.env.APP_BASE_URL || 'http://localhost:5000';
+const DEFAULT_OUTLET_ID = process.env.DEFAULT_OUTLET_ID;
 
-const SIZE_VALUES = ['REGULAR', 'MEDIUM', 'LARGE'];
+/* ---------- Validation (same as orderController) ---------- */
 
-const sizeSchema = Joi.object({
-  name: Joi.string()
-    .valid(...SIZE_VALUES)
-    .required(),
-  price: Joi.number().min(0).required(),
-  isAvailable: Joi.boolean().default(true)
+const cartItemSchema = Joi.object({
+  productId: Joi.string().required(),
+  size: Joi.string().required(),
+  crust: Joi.string().required(),
+  quantity: Joi.number().integer().min(1).max(20).required(),
+  addOns: Joi.array()
+    .items(
+      Joi.object({
+        name: Joi.string().required(),
+        quantity: Joi.number().integer().min(1).max(5).default(1)
+      })
+    )
+    .default([])
 });
 
-const crustPriceSchema = Joi.object({
-  size: Joi.string()
-    .valid(...SIZE_VALUES)
-    .required(),
-  price: Joi.number().min(0).required()
+const orderBaseSchema = Joi.object({
+  outletId: Joi.string().allow('', null),
+  items: Joi.array().items(cartItemSchema).min(1).required(),
+  deliveryType: Joi.string().valid('DELIVERY', 'PICKUP').required(),
+  address: Joi.string().allow('', null),
+  landmark: Joi.string().allow('', null),
+  latitude: Joi.number().allow(null),
+  longitude: Joi.number().allow(null),
+  rewardCoinsToUse: Joi.number().integer().min(0).default(0),
+  couponCode: Joi.string().allow('', null)
 });
 
-const crustSchema = Joi.object({
-  name: Joi.string().required(),
-  isAvailable: Joi.boolean().default(true),
-  prices: Joi.array().items(crustPriceSchema).default([])
-});
+/* ---------- Helpers ---------- */
 
-const addOnPriceSchema = Joi.object({
-  size: Joi.string()
-    .valid(...SIZE_VALUES)
-    .required(),
-  price: Joi.number().min(0).required()
-});
-
-const addOnSchema = Joi.object({
-  name: Joi.string().required(),
-  isRequired: Joi.boolean().default(false),
-  multiple: Joi.boolean().default(true),
-  isAvailable: Joi.boolean().default(true),
-  prices: Joi.array().items(addOnPriceSchema).default([])
-});
-
-const productCreateSchema = Joi.object({
-  name: Joi.string().min(2).max(100).required(),
-  category: Joi.string().min(2).max(100).required(),
-  description: Joi.string().allow('', null),
-    // image URL ya relative path – admin manual control
-  image: Joi.string().allow('', null),
-  isVeg: Joi.boolean().default(true),
-  isAvailable: Joi.boolean().default(true),
-  sizes: Joi.array().items(sizeSchema).min(1).required(),
-  crusts: Joi.array().items(crustSchema).default([]),
-  addOns: Joi.array().items(addOnSchema).default([])
-});
-
-const productUpdateSchema = productCreateSchema.fork(
-  [
-    'name',
-    'category',
-    'sizes' // update me optional hone denge
-  ],
-  field => field.optional()
-);
-
-// ---------- Controllers ----------
-
-// GET /api/products
-exports.getProducts = async (req, res) => {
-  try {
-    const { category, search, isVeg } = req.query;
-
-    const filter = { isAvailable: true };
-
-    if (category) {
-      filter.category = category;
-    }
-
-    if (typeof isVeg !== 'undefined') {
-      if (isVeg === 'true' || isVeg === '1') filter.isVeg = true;
-      if (isVeg === 'false' || isVeg === '0') filter.isVeg = false;
-    }
-
-    if (search) {
-      filter.name = { $regex: search, $options: 'i' };
-    }
-
-    const products = await Product.find(filter).sort({ category: 1, name: 1 });
-
-    return res.json({ products });
-  } catch (err) {
-    console.error('getProducts error:', err);
-    return res
-      .status(500)
-      .json({ message: 'Unable to fetch products right now.' });
+async function resolveOutlet(requestOutletId) {
+  const outletId = requestOutletId || DEFAULT_OUTLET_ID;
+  if (!outletId) {
+    const err = new Error('Outlet is not configured.');
+    err.statusCode = 500;
+    throw err;
   }
-};
 
-// GET /api/products/:id
-exports.getProductById = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const product = await Product.findOne({
-      _id: id,
-      isAvailable: true
-    });
-
-    if (!product) {
-      return res.status(404).json({ message: 'Product not found' });
-    }
-
-    return res.json({ product });
-  } catch (err) {
-    console.error('getProductById error:', err);
-    return res.status(500).json({ message: 'Error fetching product' });
+  const outlet = await Outlet.findById(outletId);
+  if (!outlet || !outlet.isActive) {
+    const err = new Error('The selected outlet is not available.');
+    err.statusCode = 400;
+    throw err;
   }
-};
+  return outlet;
+}
 
-// POST /api/products   (ADMIN only)
-exports.createProduct = async (req, res) => {
+function ensureStoreOpen(outlet) {
+  const now = new Date();
+  const hour = now.getHours();
+
+  const open = typeof outlet.openHour === 'number' ? outlet.openHour : 10;
+  const close = typeof outlet.closeHour === 'number' ? outlet.closeHour : 23;
+
+  if (hour < open || hour >= close) {
+    const err = new Error(
+      `Store "${outlet.name}" is currently closed. Orders are allowed from ${open}:00 to ${close}:00.`
+    );
+    err.statusCode = 400;
+    throw err;
+  }
+}
+
+function generateTxnId() {
+  return 'PP' + Date.now() + Math.floor(Math.random() * 1000);
+}
+
+/* ---------- 1) /api/payment/payu/init ---------- */
+
+exports.initPayuPayment = async (req, res) => {
   try {
-    const { error, value } = productCreateSchema.validate(req.body || {}, {
+    const { error, value } = orderBaseSchema.validate(req.body || {}, {
       abortEarly: false
     });
 
@@ -130,107 +95,226 @@ exports.createProduct = async (req, res) => {
         .json({ message: error.details[0].message, details: error.details });
     }
 
-    const product = await Product.create(value);
-    return res.status(201).json({ message: 'Product created', product });
-  } catch (err) {
-    console.error('createProduct error:', err);
-    return res
-      .status(500)
-      .json({ message: 'Unable to create product right now.' });
-  }
-};
+    const outlet = await resolveOutlet(value.outletId);
+    ensureStoreOpen(outlet);
 
-// PUT /api/products/:id  (ADMIN only)
-exports.updateProduct = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const { error, value } = productUpdateSchema.validate(req.body || {}, {
-      abortEarly: false
+    // Order preview (subtotal, delivery, discount, grandTotal, etc.)
+    const preview = await buildOrderPreview({
+      user: req.user,
+      outlet,
+      ...value
     });
 
-    if (error) {
-      return res
-        .status(400)
-        .json({ message: error.details[0].message, details: error.details });
-    }
+    const txnid = generateTxnId();
 
-    const product = await Product.findByIdAndUpdate(
-      id,
-      { $set: value },
-      { new: true }
-    );
+    // 1. Create order in DB (PAYU, PENDING)
+    const order = await Order.create({
+      user: preview.userId,
+      outlet: outlet._id,
+      outletName: outlet.name,
+      items: preview.items,
+      delivery: preview.delivery,
+      subtotal: preview.subtotal,
+      offerDiscount: preview.offerDiscount,
+      deliveryFee: preview.deliveryFee,
+      taxAmount: preview.taxAmount,
+      couponCode: preview.couponCode || '',
+      couponDiscount: preview.couponDiscount || 0,
+      rewardCoinsUsed: preview.rewardCoinsUsed,
+      rewardDiscount: preview.rewardDiscount,
+      grandTotal: preview.grandTotal,
+      rewardCoinsEarned: preview.rewardCoinsEarned,
+      payment: {
+        paymentType: 'PAYU',
+        paymentStatus: 'PENDING',
+        paymentReference: '',
+        payuOrderId: txnid,
+        payuTxnId: ''
+      },
+      status: 'PLACED'
+    });
 
-    if (!product) {
-      return res.status(404).json({ message: 'Product not found' });
-    }
+    // 2. Build PayU params
+    const amount = Number(preview.grandTotal || 0).toFixed(2);
+    const productinfo = 'Perfect Pizza Order';
 
-    return res.json({ message: 'Product updated', product });
-  } catch (err) {
-    console.error('updateProduct error:', err);
-    return res
-      .status(500)
-      .json({ message: 'Unable to update product right now.' });
-  }
-};
+    const firstname = req.user?.name || 'Customer';
+    const email = req.user?.email || 'test@example.com';
+    const phone = req.user?.contact || '9999999999';
 
-// PATCH /api/products/:id/availability  (ADMIN only)
-exports.updateAvailability = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { isAvailable } = req.body;
+    const callbackUrl = `${APP_BASE_URL}/api/payment/payu/callback`;
 
-    const product = await Product.findByIdAndUpdate(
-      id,
-      { $set: { isAvailable: !!isAvailable } },
-      { new: true }
-    );
+    const payuParams = {
+      key: PAYU_KEY,
+      txnid,
+      amount,
+      productinfo,
+      firstname,
+      email,
+      phone,
+      surl: callbackUrl,
+      furl: callbackUrl
+      // udf1..udf10 blank
+    };
 
-    if (!product) {
-      return res.status(404).json({ message: 'Product not found' });
-    }
+    // Request hash (no UDFs):
+    // key|txnid|amount|productinfo|firstname|email|||||||||||salt
+    const hashString =
+      PAYU_KEY +
+      '|' +
+      txnid +
+      '|' +
+      amount +
+      '|' +
+      productinfo +
+      '|' +
+      firstname +
+      '|' +
+      email +
+      '|||||||||||' +
+      PAYU_SALT;
+
+    const hash = crypto
+      .createHash('sha512')
+      .update(hashString)
+      .digest('hex');
 
     return res.json({
-      message: 'Availability updated',
-      product: { id: product._id, isAvailable: product.isAvailable }
+      orderId: order._id,
+      payuUrl: `${PAYU_BASE_URL}/_payment`,
+      params: payuParams,
+      hash
     });
   } catch (err) {
-    console.error('updateAvailability error:', err);
-    return res
-      .status(500)
-      .json({ message: 'Unable to update availability right now.' });
-  }
-};
-// Admin: list all products (including unavailable)
-exports.getAllProductsAdmin = async (req, res) => {
-  try {
-    const products = await Product.find().sort({ category: 1, name: 1 });
-    return res.json({ products });
-  } catch (err) {
-    console.error('getAllProductsAdmin error:', err);
-    return res
-      .status(500)
-      .json({ message: 'Unable to fetch products right now.' });
+    console.error('initPayuPayment error:', err);
+    const status = err.statusCode || 500;
+    return res.status(status).json({
+      message:
+        err.statusCode && status < 500
+          ? err.message
+          : 'Unable to start online payment right now.'
+    });
   }
 };
 
-// Admin: soft delete (mark unavailable)
-exports.softDeleteProduct = async (req, res) => {
+/* ---------- 2) /api/payment/payu/callback ---------- */
+
+exports.handlePayuCallback = async (req, res) => {
   try {
-    const { id } = req.params;
-    const product = await Product.findByIdAndUpdate(
-      id,
-      { $set: { isAvailable: false } },
-      { new: true }
-    );
-    if (!product) {
-      return res.status(404).json({ message: 'Product not found' });
+    const {
+      key,
+      txnid,
+      amount,
+      productinfo,
+      firstname,
+      email,
+      status,
+      hash: receivedHash,
+      mihpayid,
+      error_Message,
+      additionalCharges
+    } = req.body;
+
+    // Response hash formula (no UDFs):
+    // hash = sha512( [additionalCharges|]salt|status|||||||||||email|firstname|productinfo|amount|txnid|key )
+    let hashString =
+      PAYU_SALT +
+      '|' +
+      status +
+      '|||||||||||' +
+      email +
+      '|' +
+      firstname +
+      '|' +
+      productinfo +
+      '|' +
+      amount +
+      '|' +
+      txnid +
+      '|' +
+      PAYU_KEY;
+
+    if (additionalCharges) {
+      hashString = additionalCharges + '|' + hashString;
     }
-    return res.json({ message: 'Product disabled', product });
+
+    const calculatedHash = crypto
+      .createHash('sha512')
+      .update(hashString)
+      .digest('hex');
+
+    if (calculatedHash !== receivedHash) {
+      console.error('PayU hash mismatch (callback)');
+      return res.status(400).send('Hash mismatch');
+    }
+
+    // Find order by txnid (payuOrderId)
+    const order = await Order.findOne({
+      'payment.payuOrderId': txnid
+    }).populate('user', 'rewardCoins name contact');
+
+    if (!order) {
+      return res.status(404).send('Order not found');
+    }
+
+    order.payment = order.payment || {};
+    order.payment.rawGatewayResponse = req.body;
+    order.payment.payuTxnId = mihpayid || order.payment.payuTxnId;
+    order.payment.paymentReference = mihpayid || order.payment.paymentReference;
+
+    if (status === 'success') {
+      order.payment.paymentStatus = 'SUCCESS';
+
+      // Rewards adjustment on success
+      try {
+        const user = order.user;
+        const currentCoins = Number(user.rewardCoins || 0);
+        const used = Number(order.rewardCoinsUsed || 0);
+        const earned = Number(order.rewardCoinsEarned || 0);
+
+        let newBalance = currentCoins - used + earned;
+        if (newBalance < 0) newBalance = 0;
+
+        user.rewardCoins = newBalance;
+        await user.save();
+      } catch (uErr) {
+        console.error('Failed to update reward coins (PAYU):', uErr);
+      }
+
+      await order.save();
+
+      emitNewOrder(order);
+
+      return res.send(`
+        <html>
+          <body style="font-family: sans-serif; text-align:center; padding:40px;">
+            <h2>Payment Successful ✅</h2>
+            <p>Thank you for your order!</p>
+            <p><strong>Order ID:</strong> ${order._id}</p>
+            <p><strong>Transaction ID:</strong> ${mihpayid || ''}</p>
+            <a href="/my-orders.html">Go to My Orders</a>
+          </body>
+        </html>
+      `);
+    } else {
+      order.payment.paymentStatus = 'FAILED';
+      order.status = 'CANCELLED';
+      await order.save();
+
+      return res.send(`
+        <html>
+          <body style="font-family: sans-serif; text-align:center; padding:40px;">
+            <h2>Payment Failed ❌</h2>
+            <p>${error_Message || 'Payment was not completed.'}</p>
+            <a href="/checkout.html">Go back to Checkout</a>
+          </body>
+        </html>
+      `);
+    }
   } catch (err) {
-    console.error('softDeleteProduct error:', err);
+    console.error('handlePayuCallback error:', err);
     return res
       .status(500)
-      .json({ message: 'Unable to delete product right now.' });
+      .send('Something went wrong while processing the payment.');
   }
 };

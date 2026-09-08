@@ -161,31 +161,49 @@ async function buildOrderPreview({
   // ---------- OFFER DISCOUNT: BOGO TUESDAY ----------
   let offerDiscount = 0;
   try {
+    // Use India time (IST) instead of server UTC time
     const now = new Date();
-    const day = now.getDay(); // 2 = Tuesday
+    const istNow = new Date(
+      now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })
+    );
+    const day = istNow.getDay();   // 2 = Tuesday
+    const hour = istNow.getHours();
 
     const isTuesday = day === 2;
-    if (isTuesday && outlet.settings?.enableBogoTuesday !== false) {
+    const openHour = 10;  // 10:00 AM
+    const closeHour = 23; // 11:00 PM
+
+    // Active only on Tuesday between 10:00 and 23:00 IST
+    const isWithinBogoTime = hour >= openHour && hour < closeHour;
+
+    if (
+      isTuesday &&
+      isWithinBogoTime &&
+      outlet.settings?.enableBogoTuesday !== false
+    ) {
       for (const it of items) {
         const cat = (it.category || '').toLowerCase();
-        const sizeName = it.size?.name || '';
+        const sizeName = (it.size?.name || '').toUpperCase();
 
+        // Eligible categories (Exotic Veg, Veg Special, etc.)
         const eligibleCategory =
           cat.includes('exotic') ||
           cat.includes('veg special') ||
           cat.includes('pp special') ||
           cat.includes('premium pizza');
 
+        // Only Medium & Large
         const eligibleSize =
           sizeName === 'MEDIUM' || sizeName === 'LARGE';
 
         if (!eligibleCategory || !eligibleSize) continue;
 
+        // Base price = size + crust (add-ons free item me count nahi)
         const base =
           Number(it.size?.price || 0) + Number(it.crust?.price || 0);
 
         const qty = Number(it.quantity || 0);
-        const freeCount = Math.floor(qty / 2);
+        const freeCount = Math.floor(qty / 2); // Buy 2 → 1 free; 4 → 2 free etc.
 
         if (freeCount > 0 && base > 0) {
           offerDiscount += base * freeCount;

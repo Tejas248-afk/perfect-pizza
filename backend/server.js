@@ -14,6 +14,7 @@ const productRoutes = require('./src/routes/productRoutes');
 const orderRoutes = require('./src/routes/orderRoutes');
 const rewardRoutes = require('./src/routes/rewardRoutes');
 const adminRoutes = require('./src/routes/adminRoutes');
+const couponPublicRoutes = require('./routes/couponPublicRoutes');
 
 // PayU controller + auth middleware ko direct yahan use karenge
 const paymentController = require('./src/controllers/paymentController');
@@ -67,6 +68,11 @@ connectDB();
 
 // ---------- Routes & Endpoints ----------
 
+
+app.get('/', (req, res) => {
+  res.send('Perfect Pizza backend running. Try /api/health');
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({
@@ -74,6 +80,11 @@ app.get('/api/health', (req, res) => {
     message: 'Perfect Pizza API working',
     time: new Date().toISOString()
   });
+});
+
+// OPTIONAL: root path pe simple message
+app.get('/', (req, res) => {
+  res.send('Perfect Pizza backend running. Try /api/health');
 });
 
 // Auth routes
@@ -87,6 +98,9 @@ app.use('/api/orders', orderRoutes);
 
 // Reward routes
 app.use('/api/rewards', rewardRoutes);
+
+app.use('/api/coupons', couponPublicRoutes);
+
 
 // Admin routes
 app.use('/api/admin', adminRoutes);

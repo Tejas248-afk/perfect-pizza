@@ -14,7 +14,7 @@ const signupSchema = Joi.object({
     .max(64)
     .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/)
     .message(
-      'Password must have at least 8 chars, including uppercase, lowercase and number'
+      'Password must be at least 8 characters and include uppercase, lowercase and a number.'
     )
     .required()
 });
@@ -49,7 +49,7 @@ const createToken = user => {
 };
 
 function generateRandomPassword() {
-  // Strong random password (12 chars)
+  // Strong random password (12+ chars)
   const chars =
     'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   let pwd = '';
@@ -63,7 +63,7 @@ function generateRandomPassword() {
 
 // ---------- Controllers ----------
 
-// POST /api/auth/signup (ABHI BHI available hai, mostly internal / future use)
+// POST /api/auth/signup  (primarily for internal / future use)
 exports.signup = async (req, res) => {
   try {
     console.log('Signup body:', req.body);
@@ -83,7 +83,7 @@ exports.signup = async (req, res) => {
     const existing = await User.findOne({ contact });
     if (existing) {
       return res.status(400).json({
-        message: 'Account with this contact already exists'
+        message: 'An account with this contact number already exists.'
       });
     }
 
@@ -108,7 +108,7 @@ exports.signup = async (req, res) => {
     };
 
     return res.status(201).json({
-      message: 'Signup successful',
+      message: 'Signup successful.',
       token,
       user: userData
     });
@@ -116,11 +116,13 @@ exports.signup = async (req, res) => {
     console.error('Signup error:', err);
     return res
       .status(500)
-      .json({ message: 'Unable to signup right now, please try again.' });
+      .json({
+        message: 'Unable to sign up right now. Please try again in a while.'
+      });
   }
 };
 
-// POST /api/auth/login  (STAFF: ADMIN / KITCHEN ke liye)
+// POST /api/auth/login  (STAFF: ADMIN / KITCHEN)
 exports.login = async (req, res) => {
   try {
     const { error, value } = loginSchema.validate(req.body || {}, {
@@ -137,28 +139,28 @@ exports.login = async (req, res) => {
 
     const user = await User.findOne({ contact });
     if (!user) {
-      return res.status(400).json({ message: 'Invalid contact or password' });
+      return res.status(400).json({ message: 'Invalid contact or password.' });
     }
 
-    // Customer ko yahan allow nahi karenge → unke liye OTP login hai
+    // Customers must use OTP login, not staff login
     if (user.role === User.ROLES.CUSTOMER) {
       return res.status(403).json({
         message:
-          'Customer login ke liye mobile OTP use karein (Customer tab par).'
+          'Please use mobile OTP for customer login (use the "Customer (OTP)" tab).'
       });
     }
 
     if (!user.isActive) {
       return res
         .status(403)
-        .json({ message: 'Account is inactive, contact support.' });
+        .json({ message: 'This account is inactive. Please contact support.' });
     }
 
     // Account lock check
     if (user.lockUntil && user.lockUntil > new Date()) {
       return res.status(429).json({
         message:
-          'Too many failed attempts. Please try again after some time.'
+          'Too many failed login attempts. Please try again after some time.'
       });
     }
 
@@ -173,7 +175,9 @@ exports.login = async (req, res) => {
       }
 
       await user.save();
-      return res.status(400).json({ message: 'Invalid contact or password' });
+      return res
+        .status(400)
+        .json({ message: 'Invalid contact or password.' });
     }
 
     // successful login => reset attempts
@@ -192,7 +196,7 @@ exports.login = async (req, res) => {
     };
 
     return res.json({
-      message: 'Login successful',
+      message: 'Login successful.',
       token,
       user: userData
     });
@@ -200,7 +204,9 @@ exports.login = async (req, res) => {
     console.error('Login error:', err);
     return res
       .status(500)
-      .json({ message: 'Unable to login right now, please try again.' });
+      .json({
+        message: 'Unable to log in right now. Please try again in a while.'
+      });
   }
 };
 
@@ -221,13 +227,12 @@ exports.sendCustomerOtp = async (req, res) => {
 
     let user = await User.findOne({ contact });
 
-    // Naya customer → auto create
+    // New customer → auto create
     if (!user) {
       const randomPassword = generateRandomPassword();
       const salt = await bcrypt.genSalt(10);
       const hashed = await bcrypt.hash(randomPassword, salt);
 
-      // Name temporarily "Customer <last4>"
       const tempName =
         'Customer ' + contact.slice(-4).padStart(4, 'X');
 
@@ -242,7 +247,7 @@ exports.sendCustomerOtp = async (req, res) => {
     if (!user.isActive) {
       return res
         .status(403)
-        .json({ message: 'Account is inactive, contact support.' });
+        .json({ message: 'This account is inactive. Please contact support.' });
     }
 
     const otp = String(
@@ -258,13 +263,15 @@ exports.sendCustomerOtp = async (req, res) => {
     await sendOtpSms(contact, otp);
 
     return res.json({
-      message: 'OTP sent successfully to your mobile number.'
+      message: 'OTP has been sent to your mobile number.'
     });
   } catch (err) {
     console.error('sendCustomerOtp error:', err);
     return res
       .status(500)
-      .json({ message: 'Unable to send OTP right now, please try again.' });
+      .json({
+        message: 'Unable to send OTP right now. Please try again later.'
+      });
   }
 };
 
@@ -289,29 +296,29 @@ exports.verifyCustomerOtp = async (req, res) => {
     });
 
     if (!user) {
-      return res.status(400).json({ message: 'Invalid OTP or contact' });
+      return res.status(400).json({ message: 'Invalid OTP or contact.' });
     }
 
     if (!user.isActive) {
       return res
         .status(403)
-        .json({ message: 'Account is inactive, contact support.' });
+        .json({ message: 'This account is inactive. Please contact support.' });
     }
 
     if (!user.otpCode || !user.otpExpiresAt) {
       return res.status(400).json({
-        message: 'OTP not requested or expired. Please request a new OTP.'
+        message: 'OTP was not requested or has expired. Please request a new OTP.'
       });
     }
 
     if (user.otpExpiresAt < new Date()) {
       return res.status(400).json({
-        message: 'OTP expired. Please request a new OTP.'
+        message: 'OTP has expired. Please request a new OTP.'
       });
     }
 
     if (user.otpCode !== otp) {
-      return res.status(400).json({ message: 'Invalid OTP' });
+      return res.status(400).json({ message: 'Invalid OTP.' });
     }
 
     // OTP correct
@@ -332,7 +339,7 @@ exports.verifyCustomerOtp = async (req, res) => {
     };
 
     return res.json({
-      message: 'Login successful',
+      message: 'Login successful.',
       token,
       user: userData
     });
@@ -340,19 +347,23 @@ exports.verifyCustomerOtp = async (req, res) => {
     console.error('verifyCustomerOtp error:', err);
     return res
       .status(500)
-      .json({ message: 'Unable to verify OTP right now, please try again.' });
+      .json({
+        message: 'Unable to verify OTP right now. Please try again later.'
+      });
   }
 };
 
 // POST /api/auth/logout
 exports.logout = async (req, res) => {
   try {
-    return res.json({ message: 'Logged out successfully' });
+    return res.json({ message: 'Logged out successfully.' });
   } catch (err) {
     console.error('Logout error:', err);
     return res
       .status(500)
-      .json({ message: 'Unable to logout right now, please try again.' });
+      .json({
+        message: 'Unable to log out right now. Please try again later.'
+      });
   }
 };
 
@@ -360,7 +371,7 @@ exports.logout = async (req, res) => {
 exports.getMe = async (req, res) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ message: 'Authentication required' });
+      return res.status(401).json({ message: 'Authentication required.' });
     }
 
     return res.json({

@@ -41,14 +41,14 @@ const DEFAULT_OUTLET_ID = process.env.DEFAULT_OUTLET_ID;
 async function resolveOutlet(requestOutletId) {
   const outletId = requestOutletId || DEFAULT_OUTLET_ID;
   if (!outletId) {
-    const err = new Error('Outlet not configured.');
+    const err = new Error('Outlet is not configured.');
     err.statusCode = 500;
     throw err;
   }
 
   const outlet = await Outlet.findById(outletId);
   if (!outlet || !outlet.isActive) {
-    const err = new Error('Selected outlet is not available.');
+    const err = new Error('The selected outlet is not available.');
     err.statusCode = 400;
     throw err;
   }
@@ -56,15 +56,20 @@ async function resolveOutlet(requestOutletId) {
 }
 
 function ensureStoreOpen(outlet) {
+  // Use India time (IST) instead of server UTC time
   const now = new Date();
-  const hour = now.getHours();
+  const istNow = new Date(
+    now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })
+  );
+  const hour = istNow.getHours();
 
-  const open = typeof outlet.openHour === 'number' ? outlet.openHour : 10;
-  const close = typeof outlet.closeHour === 'number' ? outlet.closeHour : 23;
+  // Fixed hours: 10 AM to 11 PM every day
+  const open = 10;  // 10:00
+  const close = 23; // 23:00 (11 PM)
 
   if (hour < open || hour >= close) {
     const err = new Error(
-      `Store "${outlet.name}" abhi band hai. Orders ${open}:00 se ${close}:00 tak allowed hain.`
+      `Store "${outlet.name}" is currently closed. Orders are allowed from ${open}:00 to ${close}:00.`
     );
     err.statusCode = 400;
     throw err;
@@ -342,46 +347,12 @@ exports.deleteOrder = async (req, res) => {
       return res.status(404).json({ message: 'Order not found' });
     }
 
-    // Optional restriction:
-    // if (!['DELIVERED', 'CANCELLED'].includes(order.status)) {
-    //   return res
-    //     .status(400)
-    //     .json({ message: 'Only delivered/cancelled orders can be deleted.' });
-    // }
-
-    await order.deleteOne();
-
-    return res.json({ message: 'Order deleted successfully' });
-  } catch (err) {
-    console.error('deleteOrder error:', err);
-    return res
-      .status(500)
-      .json({ message: 'Unable to delete order right now.' });
-  }
-};
-// DELETE /api/orders/:id
-exports.deleteOrder = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const order = await Order.findById(id);
-    if (!order) {
-      return res.status(404).json({ message: 'Order not found' });
-    }
-
     const role = req.user.role;
 
-    // CUSTOMER sirf apna hi order delete kar sake
+    // CUSTOMER can only delete their own order
     if (role === 'CUSTOMER' && String(order.user) !== String(req.user._id)) {
-      return res.status(403).json({ message: 'Not allowed to delete this order' });
+      return res.status(403).json({ message: 'You are not allowed to delete this order.' });
     }
-
-    // Optional restriction: sirf delivered/cancelled delete karna ho to:
-    // if (!['DELIVERED', 'CANCELLED'].includes(order.status)) {
-    //   return res
-    //     .status(400)
-    //     .json({ message: 'Only delivered/cancelled orders can be deleted.' });
-    // }
 
     await order.deleteOne();
 
