@@ -6,7 +6,6 @@ let io = null;
 function initSocket(server) {
   io = new Server(server, {
     cors: {
-      // Dev / project ke liye open rakho, taaki Live Server, file:// etc. sab chal jaye
       origin: '*',
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']
     }
@@ -15,7 +14,6 @@ function initSocket(server) {
   io.on('connection', socket => {
     console.log('[Socket] connected:', socket.id);
 
-    // Frontend se user info aayega
     socket.on('registerUser', payload => {
       try {
         const { userId, role } = payload || {};
@@ -46,15 +44,18 @@ function initSocket(server) {
   });
 }
 
+/**
+ * Naya order kitchen/admin ko bhejne ke liye.
+ * PAYU (online) ke liye sirf SUCCESS payment pe emit karega.
+ */
 function emitNewOrder(order) {
   if (!io || !order) return;
 
-  // -------- SAFETY CHECKS --------
   const payment = order.payment || {};
   const isPayu = payment.paymentType === 'PAYU';
   const isCod = payment.paymentType === 'COD';
 
-  // Online (PayU) ke liye: sirf SUCCESS payment par hi kitchen ko bhejo
+  // Online (PayU) ke liye: sirf SUCCESS par hi newOrder emit kare
   if (isPayu && payment.paymentStatus !== 'SUCCESS') {
     console.log(
       '[Socket] skip emitNewOrder (unpaid PayU):',
@@ -67,7 +68,7 @@ function emitNewOrder(order) {
     return;
   }
 
-  // (Optional) agar sirf PLACED orders hi naya maana hai:
+  // Optional: sirf PLACED ko hi "new" maana
   if (order.status !== 'PLACED') {
     console.log(
       '[Socket] skip emitNewOrder (status != PLACED):',
@@ -77,7 +78,6 @@ function emitNewOrder(order) {
     );
     return;
   }
-  // -------- END SAFETY --------
 
   const payload = {
     _id: order._id,
@@ -92,8 +92,37 @@ function emitNewOrder(order) {
 
   io.to('kitchen').emit('newOrder', payload);
   io.to('admin').emit('newOrder', payload);
+
+  // Customer ko bhi notify
   io.to(`user:${order.user}`).emit('orderStatusUpdated', payload);
 }
+
+/**
+ * Jab bhi order ka status change ho (BAKING, OUT_FOR_DELIVERY, DELIVERED, etc.)
+ */
+function emitOrderStatusUpdated(order) {
+  if (!io || !order) return;
+
+  const payload = {
+    _id: order._id,
+    status: order.status,
+    grandTotal: order.grandTotal,
+    updatedAt: order.updatedAt,
+    delivery: order.delivery
+  };
+
+  console.log(
+    '[Socket] emitOrderStatusUpdated → kitchen/admin/user:',
+    String(order._id),
+    'status:',
+    order.status
+  );
+
+  io.to('kitchen').emit('orderStatusUpdated', payload);
+  io.to('admin').emit('orderStatusUpdated', payload);
+  io.to(`user:${order.user}`).emit('orderStatusUpdated', payload);
+}
+
 module.exports = {
   initSocket,
   emitNewOrder,
