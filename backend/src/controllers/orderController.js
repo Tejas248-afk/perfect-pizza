@@ -252,9 +252,11 @@ exports.getKitchenOrders = async (req, res) => {
   try {
     const { filter } = req.query;
 
-    const query = {};
+    let query = {};
 
-    if (filter === 'active') {
+    // DEFAULT: active
+    if (filter === 'active' || !filter) {
+      // Sirf yehi statuses dikhen
       query.status = { $in: ['PLACED', 'BAKING', 'OUT_FOR_DELIVERY'] };
     } else if (filter === 'completed') {
       query.status = 'DELIVERED';

@@ -49,6 +49,36 @@ function initSocket(server) {
 function emitNewOrder(order) {
   if (!io || !order) return;
 
+  // -------- SAFETY CHECKS --------
+  const payment = order.payment || {};
+  const isPayu = payment.paymentType === 'PAYU';
+  const isCod = payment.paymentType === 'COD';
+
+  // Online (PayU) ke liye: sirf SUCCESS payment par hi kitchen ko bhejo
+  if (isPayu && payment.paymentStatus !== 'SUCCESS') {
+    console.log(
+      '[Socket] skip emitNewOrder (unpaid PayU):',
+      String(order._id),
+      'status=',
+      order.status,
+      'paymentStatus=',
+      payment.paymentStatus
+    );
+    return;
+  }
+
+  // (Optional) agar sirf PLACED orders hi naya maana hai:
+  if (order.status !== 'PLACED') {
+    console.log(
+      '[Socket] skip emitNewOrder (status != PLACED):',
+      String(order._id),
+      'status=',
+      order.status
+    );
+    return;
+  }
+  // -------- END SAFETY --------
+
   const payload = {
     _id: order._id,
     status: order.status,
@@ -60,37 +90,10 @@ function emitNewOrder(order) {
 
   console.log('[Socket] emitNewOrder → kitchen/admin:', String(order._id));
 
-  // Kitchen & admin ko new order
   io.to('kitchen').emit('newOrder', payload);
   io.to('admin').emit('newOrder', payload);
-
-  // Customer ko bhi placed status bhej do
   io.to(`user:${order.user}`).emit('orderStatusUpdated', payload);
 }
-
-function emitOrderStatusUpdated(order) {
-  if (!io || !order) return;
-
-  const payload = {
-    _id: order._id,
-    status: order.status,
-    grandTotal: order.grandTotal,
-    updatedAt: order.updatedAt,
-    delivery: order.delivery
-  };
-
-  console.log(
-    '[Socket] emitOrderStatusUpdated → kitchen/admin/user:',
-    String(order._id),
-    'status:',
-    order.status
-  );
-
-  io.to('kitchen').emit('orderStatusUpdated', payload);
-  io.to('admin').emit('orderStatusUpdated', payload);
-  io.to(`user:${order.user}`).emit('orderStatusUpdated', payload);
-}
-
 module.exports = {
   initSocket,
   emitNewOrder,
