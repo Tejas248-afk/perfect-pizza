@@ -23,6 +23,19 @@ router.get('/overview', adminController.getOverview);
 router.get('/outlet', outletAdminController.getOutletConfig);
 router.put('/outlet', outletAdminController.updateOutletConfig);
 
+// ---------- Outlets (multi-outlet) ----------
+// Navbar dropdown (active outlets only)
+router.get('/outlets', outletAdminController.listOutlets);
+
+// Outlets management page (all outlets)
+router.get('/outlets/manage', outletAdminController.getAllOutletsAdmin);
+router.post('/outlets', outletAdminController.createOutlet);
+router.put('/outlets/:id', outletAdminController.updateOutlet);
+router.patch(
+  '/outlets/:id/toggle-active',
+  outletAdminController.toggleOutletActive
+);
+
 // ---------- Orders ----------
 router.get('/orders', adminController.getOrders);
 
