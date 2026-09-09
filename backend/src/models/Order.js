@@ -85,7 +85,9 @@ const paymentSchema = new Schema(
   { _id: false }
 );
 
+// Yahan naya status add kiya: PENDING_PAYMENT
 const ORDER_STATUS = [
+  'PENDING_PAYMENT',
   'PLACED',
   'BAKING',
   'OUT_FOR_DELIVERY',
@@ -188,7 +190,9 @@ orderSchema.index({ status: 1, createdAt: -1 });
 const Order = mongoose.model('Order', orderSchema);
 Order.STATUS = ORDER_STATUS;
 
+// Optional transition map (agar kahi use ho)
 const ALLOWED_TRANSITIONS = {
+  PENDING_PAYMENT: ['CANCELLED'], // manual cancel allowed if needed
   PLACED: ['BAKING', 'CANCELLED'],
   BAKING: ['OUT_FOR_DELIVERY', 'CANCELLED'],
   OUT_FOR_DELIVERY: ['DELIVERED', 'CANCELLED'],

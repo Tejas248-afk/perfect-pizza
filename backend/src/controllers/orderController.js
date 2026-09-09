@@ -200,7 +200,13 @@ exports.createCodOrder = async (req, res) => {
 // GET /api/orders/my
 exports.getMyOrders = async (req, res) => {
   try {
-    const orders = await Order.find({ user: req.user._id })
+    // IMPORTANT CHANGE:
+    // yahan PENDING_PAYMENT orders ko hide kar rahe hain,
+    // taaki half-paid / unpaid PayU orders customer ko na dikhein.
+    const orders = await Order.find({
+      user: req.user._id,
+      status: { $ne: 'PENDING_PAYMENT' }
+    })
       .sort({ createdAt: -1 })
       .select(
         'outletName subtotal deliveryFee taxAmount offerDiscount couponDiscount rewardDiscount grandTotal status payment createdAt'
@@ -294,7 +300,7 @@ exports.updateOrderStatus = async (req, res) => {
     const deliveryType = order.delivery?.deliveryType || 'DELIVERY';
 
     const transitionsDelivery = {
-      PLACED: ['BAKING', 'CANCELLED'],
+      PLACED: ['BAKING', 'OUT_FOR_DELIVERY', 'CANCELLED'],
       BAKING: ['OUT_FOR_DELIVERY', 'CANCELLED'],
       OUT_FOR_DELIVERY: ['DELIVERED', 'CANCELLED'],
       DELIVERED: [],

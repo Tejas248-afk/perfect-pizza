@@ -62,6 +62,8 @@ async function resolveOutlet(requestOutletId) {
 }
 
 function ensureStoreOpen(outlet) {
+  // India time ki jagah local time use kiya gaya tha,
+  // chaaho to yahan bhi Asia/Kolkata convert kar sakte ho.
   const now = new Date();
   const hour = now.getHours();
 
@@ -107,7 +109,11 @@ exports.initPayuPayment = async (req, res) => {
 
     const txnid = generateTxnId();
 
-    // 1. DB me order create karo (payment PENDING, PAYU type)
+    // 1. DB me order create karo
+    // IMPORTANT CHANGE:
+    // Pehle yahan status: 'PLACED' tha, jis se bina payment ke bhi
+    // kitchen / my orders me order dikhta tha.
+    // Ab hum yahan 'PENDING_PAYMENT' rakh rahe hain.
     const order = await Order.create({
       user: preview.userId,
       outlet: outlet._id,
@@ -131,7 +137,7 @@ exports.initPayuPayment = async (req, res) => {
         payuOrderId: txnid, // txnid se map kar rahe
         payuTxnId: ''
       },
-      status: 'PLACED'
+      status: 'PENDING_PAYMENT'
     });
 
     // 2. PayU ke liye params banao
@@ -178,9 +184,6 @@ exports.initPayuPayment = async (req, res) => {
       .createHash('sha512')
       .update(hashString)
       .digest('hex');
-
-    // Debug (agar test karna ho to uncomment):
-    // console.log('PayU request hashString:', hashString);
 
     return res.json({
       orderId: order._id,
@@ -269,6 +272,10 @@ exports.handlePayuCallback = async (req, res) => {
     if (status === 'success') {
       order.payment.paymentStatus = 'SUCCESS';
 
+      // IMPORTANT: status ko ab yahan PLACED kar rahe hain.
+      // Isi moment se kitchen & customer list me order dikhega.
+      order.status = 'PLACED';
+
       // Rewards: sirf success pe adjust
       try {
         const user = order.user;
@@ -287,7 +294,7 @@ exports.handlePayuCallback = async (req, res) => {
 
       await order.save();
 
-      // Kitchen ko bata do
+      // Abhi payment success hai, abhi order kitchen ko dikhaao
       emitNewOrder(order);
 
       return res.send(`
