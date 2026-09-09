@@ -51,7 +51,6 @@ const crustSchema = new Schema(
       type: Boolean,
       default: true
     },
-    // har size ka alag price (Cheese Burst etc.)
     prices: [crustPriceSchema]
   },
   { _id: false }
@@ -85,7 +84,6 @@ const addOnSchema = new Schema(
       default: false
     },
     multiple: {
-      // single / multiple selection
       type: Boolean,
       default: true
     },
@@ -109,7 +107,7 @@ const productSchema = new Schema(
       type: String,
       required: true,
       trim: true
-      // future me yahan Category model ka ref bhi de sakte hain
+      // future: Category model ref
     },
     description: {
       type: String,
@@ -127,6 +125,20 @@ const productSchema = new Schema(
       type: Boolean,
       default: true
     },
+    // NEW: time-based availability window (0–23, optional)
+    availableFromHour: {
+      type: Number,
+      min: 0,
+      max: 23
+      // null/undefined => no limit (0–24)
+    },
+    availableToHour: {
+      type: Number,
+      min: 0,
+      max: 23
+      // null/undefined => no limit (0–24)
+    },
+
     sizes: [sizeSchema],
     crusts: [crustSchema],
     addOns: [addOnSchema]

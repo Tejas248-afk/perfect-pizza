@@ -13,7 +13,12 @@
       <span>🍕 Perfect <span class="dot">Pizza</span> Admin</span>
     </div>
     <nav class="nav-links">
+      <select id="admin-outlet-select" class="nav-outlet-select">
+        <option value="">All Outlets</option>
+      </select>
+
       <a href="/admin/products.html">Menu Items</a>
+      <a href="/admin/outlets.html">Outlets</a>
       <a href="/admin/customers.html">Customers</a>
       <a href="/admin/delivery-rules.html">Delivery Rules</a>
       <a href="/admin/coupons.html">Coupons</a>
@@ -165,6 +170,33 @@
         </div>
       </div>
 
+      <!-- OPTIONAL: add time window for new products too -->
+      <div
+        style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:0.75rem;margin-top:0.75rem;">
+        <div>
+          <label class="text-small" for="admin-add-available-from">Available From (0–23)</label>
+          <input
+            id="admin-add-available-from"
+            type="number"
+            name="availableFromHour"
+            class="input"
+            min="0"
+            max="23"
+          />
+        </div>
+        <div>
+          <label class="text-small" for="admin-add-available-to">Available Till (0–23)</label>
+          <input
+            id="admin-add-available-to"
+            type="number"
+            name="availableToHour"
+            class="input"
+            min="0"
+            max="23"
+          />
+        </div>
+      </div>
+
       <div style="margin-top:1rem;">
         <button type="submit" class="btn btn-primary">Add Product</button>
       </div>
@@ -216,14 +248,25 @@
       <form id="admin-edit-product-form">
         <input type="hidden" id="edit-product-id" />
 
+        <!-- Name + Category dropdown + Veg/Non-Veg -->
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0.75rem;">
           <div>
             <label class="text-small" for="edit-name">Name</label>
             <input id="edit-name" type="text" class="input" required />
           </div>
           <div>
-            <label class="text-small" for="edit-category">Category</label>
-            <input id="edit-category" type="text" class="input" required />
+            <label class="text-small" for="edit-category-select">Category</label>
+            <select id="edit-category-select" class="input">
+              <option value="">Select category</option>
+              <option value="__custom">Other (custom)</option>
+            </select>
+            <input
+              type="text"
+              id="edit-category-custom"
+              class="input"
+              placeholder="Enter custom category"
+              style="margin-top:0.5rem;display:none;"
+            />
           </div>
           <div>
             <label class="text-small" for="edit-isVeg">Type</label>
@@ -239,6 +282,7 @@
           <textarea id="edit-description" class="input" rows="2"></textarea>
         </div>
 
+        <!-- Prices -->
         <div
           style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:0.75rem;margin-top:0.75rem;"
         >
@@ -256,6 +300,7 @@
           </div>
         </div>
 
+        <!-- Availability + Time window -->
         <div style="margin-top:0.75rem;">
           <label>
             <input type="checkbox" id="edit-isAvailable" />
@@ -263,8 +308,22 @@
           </label>
         </div>
 
+        <div
+          style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:0.75rem;margin-top:0.75rem;"
+        >
+          <div>
+            <label class="text-small" for="edit-available-from">Available From (0–23)</label>
+            <input id="edit-available-from" type="number" class="input" min="0" max="23" />
+          </div>
+          <div>
+            <label class="text-small" for="edit-available-to">Available Till (0–23)</label>
+            <input id="edit-available-to" type="number" class="input" min="0" max="23" />
+          </div>
+        </div>
+
         <hr style="margin:1rem 0;" />
 
+        <!-- Add-ons -->
         <div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
             <h3 style="font-size:1rem;">Add-ons</h3>
@@ -280,6 +339,32 @@
           <p class="text-small" style="color:#666;margin-top:0.25rem;">
             Example: Extra cheese, extra toppings etc. Leave a price empty if not applicable for that size.
           </p>
+        </div>
+
+        <hr style="margin:1rem 0;" />
+
+        <!-- Combo config (optional) -->
+        <div>
+          <div
+            style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.5rem;gap:0.75rem;flex-wrap:wrap;"
+          >
+            <div>
+              <h3 style="font-size:1rem;">Combo Config (optional)</h3>
+              <p class="text-small" style="color:#666;margin-top:0.25rem;max-width:360px;">
+                Use this only for combo products (Meal for 2, Zingy Combo, etc.).
+                Customer will choose items from these groups (pizzas / sides / drinks).
+              </p>
+            </div>
+            <button
+              type="button"
+              class="btn btn-secondary btn-sm"
+              id="edit-combo-add-group-btn"
+            >
+              Add Combo Group
+            </button>
+          </div>
+
+          <div id="edit-combo-groups-container"></div>
         </div>
 
         <div style="margin-top:1rem;display:flex;justify-content:flex-end;gap:0.5rem;">

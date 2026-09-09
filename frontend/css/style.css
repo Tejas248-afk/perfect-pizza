@@ -95,6 +95,16 @@ body {
   font-weight: 600;
 }
 
+/* Admin outlet selector in navbar */
+.nav-outlet-select {
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid #ddd;
+  font-size: 0.8rem;
+  background: #fff;
+  margin-right: 0.5rem;
+}
+
 /* Profile avatar */
 
 .profile-btn {
@@ -171,6 +181,32 @@ body {
   text-decoration: underline;
 }
 
+/* Generic card for admin + other sections */
+.card {
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: var(--shadow-soft);
+  border: 1px solid rgba(15, 23, 42, 0.04);
+}
+
+/* Generic table */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid #eee;
+  font-size: 0.85rem;
+}
+
+.table th {
+  text-align: left;
+  background: #fafafa;
+}
+
 /* ==================================================
    HERO (HOME)
 ================================================== */
@@ -229,6 +265,16 @@ body {
   cursor: pointer;
   font-size: 0.95rem;
   font-weight: 600;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.1s ease;
+}
+
+.btn-sm {
+  padding: 4px 10px;
+  font-size: 0.8rem;
 }
 
 .btn-primary {
@@ -240,11 +286,13 @@ body {
 .btn-primary:hover {
   filter: brightness(1.03);
   box-shadow: 0 12px 26px rgba(0, 87, 194, 0.25);
+  transform: translateY(-1px);
 }
 
 .btn-primary:disabled {
   opacity: 0.7;
   cursor: default;
+  box-shadow: none;
 }
 
 .btn-secondary {
@@ -258,10 +306,24 @@ body {
   background: #e1ebff;
 }
 
+.btn-danger {
+  background: #e53935;
+  color: #fff;
+  border: 1px solid #d32f2f;
+}
+
+.btn-danger:hover {
+  background: #f44336;
+}
+
 .btn-danger-outline {
   background: transparent;
   color: #b42318;
   border: 1px solid #f1aaa5;
+}
+
+.btn-danger-outline:hover {
+  background: rgba(229, 57, 53, 0.08);
 }
 
 .full-width-btn {
@@ -321,6 +383,34 @@ body {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 2px rgba(0, 87, 194, 0.15);
+}
+
+/* Generic input for admin forms */
+.input,
+select.input,
+textarea.input {
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.7);
+  font-size: 0.9rem;
+  background: #fff;
+}
+
+.input:focus,
+select.input:focus,
+textarea.input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(0, 87, 194, 0.15);
+}
+
+/* Simple form row (admin settings) */
+.form-row {
+  margin-bottom: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
 /* Alerts */
@@ -1565,7 +1655,7 @@ body {
     align-items: flex-start;
   }
 }
-/* ===== Buttons (global) ===== */
+/* ===== Buttons (legacy override section) ===== */
 
 .btn {
   display: inline-flex;
@@ -1584,52 +1674,13 @@ body {
     transform 0.1s ease;
 }
 
+/* Keep .btn-sm from earlier */
 .btn-sm {
   padding: 4px 10px;
   font-size: 0.8rem;
 }
 
-.btn-primary {
-  background: linear-gradient(135deg, #ff9800, #ff5722);
-  color: #fff;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.18);
-}
-
-.btn-primary:hover {
-  background: linear-gradient(135deg, #ffa726, #ff7043);
-  transform: translateY(-1px);
-}
-
-.btn-secondary {
-  background: #f3f3f3;
-  color: #444;
-  border: 1px solid #ddd;
-}
-
-.btn-secondary:hover {
-  background: #eaeaea;
-}
-
-.btn-danger {
-  background: #e53935;
-  color: #fff;
-  border: 1px solid #d32f2f;
-}
-
-.btn-danger:hover {
-  background: #f44336;
-}
-
-.btn-danger-outline {
-  background: transparent;
-  color: #e53935;
-  border: 1px solid #e53935;
-}
-
-.btn-danger-outline:hover {
-  background: rgba(229, 57, 53, 0.08);
-}
-/* ===== Orders List ===== */
+/* ===== Orders List (admin + kitchen) ===== */
 
 .orders-list,
 #kitchen-orders,
@@ -1697,7 +1748,7 @@ body {
     justify-content: flex-start;
   }
 }
-/* ===== Status Badges ===== */
+/* ===== Status Badges (admin table) ===== */
 
 .order-status-badge {
   display: inline-block;
@@ -1863,6 +1914,7 @@ body {
   font-size: 0.75rem;
   padding: 3px 10px;
 }
+
 .kitchen-actions .btn-danger {
   background: #ffebee;
   color: #c62828;
@@ -1872,6 +1924,7 @@ body {
 .kitchen-actions .btn-danger:hover {
   background: #ffcdd2;
 }
+
 .invoice-card {
   background: #fff;
   padding: 1.5rem;

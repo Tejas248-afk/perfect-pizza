@@ -24,9 +24,11 @@ function getOptionPriceForSize(option, sizeName) {
   return priceEntry ? Number(priceEntry.price) : null;
 }
 
-/* ---------- Static combo config (frontend only) ---------- */
-/* Yahan sab combo products ka config rakhenge.
-   Agar product.name inme se match karega to Combo customizer khulega. */
+/* ---------- Static combo config (legacy frontend only) ---------- */
+/* NOTE:
+   - New combos should come from backend via product.comboConfig
+   - This LEGACY_COMBO_CONFIG is kept as a fallback so old combos keep working.
+*/
 
 const SINGLE_TOPPING_OPTIONS = [
   { label: 'Onion Pizza', extraPrice: 0 },
@@ -48,7 +50,7 @@ const BASIC_DRINK_OPTIONS_1L = [
   { label: 'ColdDrink 1L', extraPrice: 0 }
 ];
 
-const COMBO_CONFIG = {
+const LEGACY_COMBO_CONFIG = {
   /* ========= SUPER SAVING COMBOS ========= */
 
   'Zingy Pizza Combo': {
@@ -388,6 +390,70 @@ const COMBO_CONFIG = {
   }
 };
 
+/* ---------- Dynamic combo config from backend (product.comboConfig) ---------- */
+
+function getDynamicComboConfig(product) {
+  if (!product || !product.comboConfig) return null;
+
+  const raw = product.comboConfig;
+
+  const rawGroups = Array.isArray(raw.groups)
+    ? raw.groups
+    : Array.isArray(raw)
+      ? raw
+      : [];
+
+  if (!rawGroups.length) return null;
+
+  const groups = rawGroups
+    .map((group, index) => {
+      if (!group) return null;
+
+      const options =
+        Array.isArray(group.options) && group.options.length
+          ? group.options
+          : Array.isArray(group.items) && group.items.length
+            ? group.items
+            : [];
+
+      if (!options.length) return null;
+
+      const key =
+        group.key ||
+        group.id ||
+        group.slug ||
+        `group_${index + 1}`;
+
+      return {
+        key,
+        title: group.title || group.name || key,
+        required:
+          typeof group.required === 'boolean' ? group.required : true,
+        options: options.map(option => ({
+          label: option.label || option.name || '',
+          extraPrice: Number(
+            option.extraPrice ?? option.price ?? 0
+          )
+        }))
+      };
+    })
+    .filter(Boolean);
+
+  if (!groups.length) return null;
+
+  return { groups };
+}
+
+function getComboConfig(product) {
+  const dynamicConfig = getDynamicComboConfig(product);
+  if (dynamicConfig) {
+    return dynamicConfig;
+  }
+
+  // Legacy static fallback
+  return LEGACY_COMBO_CONFIG[product.name] || null;
+}
+
 /* ---------- Tuesday BOGO helpers ---------- */
 
 // Current time in India (IST)
@@ -607,10 +673,11 @@ function renderProducts(
     const content = document.createElement('div');
     content.className = 'product-card-content';
 
+    const comboCfg = getComboConfig(product);
+    const isCombo = !!comboCfg;
+
     const eligibleForBogo =
       bogoActive && isProductEligibleForTuesdayBogo(product);
-
-    const isCombo = !!COMBO_CONFIG[product.name];
 
     content.innerHTML = `
       <div>
@@ -663,7 +730,6 @@ function renderProducts(
     content
       .querySelector('.customize-btn')
       .addEventListener('click', () => {
-        const comboCfg = COMBO_CONFIG[product.name];
         if (comboCfg) {
           openComboCustomizer(product, comboCfg);
         } else {
@@ -760,47 +826,19 @@ function openComboCustomizer(product, comboCfg) {
     return;
   }
 
+  const addOns = (product.addOns || []).filter(
+    addOn => addOn.isAvailable !== false
+  );
+
+  const groups = Array.isArray(comboCfg.groups)
+    ? comboCfg.groups
+    : [];
+
   title.textContent = product.name;
 
-  body.innerHTML = `
-    <form id="customizer-form">
-      <section class="customizer-section">
-        <h3>Base Price</h3>
-        <p class="muted-text">
-          ${escapeHtml(product.description || '')}
-        </p>
-        <p><strong>Size:</strong> ${escapeHtml(size.name)} • <strong>₹${Number(size.price).toFixed(0)}</strong></p>
-      </section>
-
-      <section class="customizer-section">
-        <h3>Choose Crust</h3>
-        <div class="choice-list" id="combo-crust-options">
-          ${crusts
-            .map((crust, index) => {
-              const crustPriceEntry = (crust.prices || []).find(
-                p => p.size === size.name
-              );
-              const extra = crustPriceEntry ? Number(crustPriceEntry.price || 0) : 0;
-              const priceText = extra === 0 ? 'Free' : `+₹${extra.toFixed(0)}`;
-              return `
-                <label class="choice-row">
-                  <input
-                    type="radio"
-                    name="combo-crust"
-                    value="${index}"
-                    ${index === 0 ? 'checked' : ''}
-                  />
-                  <span class="choice-row-name">${escapeHtml(crust.name)}</span>
-                  <span class="choice-row-price">${priceText}</span>
-                </label>
-              `;
-            })
-            .join('')}
-        </div>
-      </section>
-
-      ${comboCfg.groups
-        .map((group) => {
+  const comboGroupsHtml = groups.length
+    ? groups
+        .map(group => {
           return `
             <section class="customizer-section">
               <h3>${escapeHtml(group.title || group.key)}</h3>
@@ -818,7 +856,9 @@ function openComboCustomizer(product, comboCfg) {
                           value="${oIndex}"
                           ${oIndex === 0 ? 'checked' : ''}
                         />
-                        <span class="choice-row-name">${escapeHtml(opt.label)}</span>
+                        <span class="choice-row-name">${escapeHtml(
+                          opt.label
+                        )}</span>
                         <span class="choice-row-price">${priceText}</span>
                       </label>
                     `;
@@ -828,7 +868,124 @@ function openComboCustomizer(product, comboCfg) {
             </section>
           `;
         })
-        .join('')}
+        .join('')
+    : `
+        <section class="customizer-section">
+          <h3>Combo items</h3>
+          <p class="muted-text">No configurable items for this combo.</p>
+        </section>
+      `;
+
+  const addOnSectionHtml = addOns.length
+    ? `
+        <section class="customizer-section">
+          <h3>Combo Add-ons</h3>
+          <div class="choice-list" id="combo-addon-options">
+            ${addOns
+              .map((addOn, index) => {
+                return `
+                  <div class="choice-row addon-row">
+                    <label class="addon-label">
+                      <input
+                        type="checkbox"
+                        name="combo-addon"
+                        value="${index}"
+                        data-required="${
+                          addOn.isRequired ? 'true' : 'false'
+                        }"
+                        ${addOn.isRequired ? 'checked' : ''}
+                      />
+
+                      <span>
+                        ${escapeHtml(addOn.name)}
+                        ${
+                          addOn.isRequired
+                            ? '<small class="required-text">Required</small>'
+                            : ''
+                        }
+                      </span>
+                    </label>
+
+                    <div class="addon-actions">
+                      ${
+                        addOn.multiple
+                          ? `
+                            <select
+                              class="addon-quantity"
+                              data-combo-addon-quantity="${index}"
+                              aria-label="${escapeHtml(
+                                addOn.name
+                              )} quantity"
+                            >
+                              <option value="1">1×</option>
+                              <option value="2">2×</option>
+                              <option value="3">3×</option>
+                            </select>
+                          `
+                          : ''
+                      }
+
+                      <span
+                        class="choice-row-price"
+                        data-combo-addon-price="${index}"
+                      ></span>
+                    </div>
+                  </div>
+                `;
+              })
+              .join('')}
+          </div>
+        </section>
+      `
+    : '';
+
+  body.innerHTML = `
+    <form id="customizer-form">
+      <section class="customizer-section">
+        <h3>Base Price</h3>
+        <p class="muted-text">
+          ${escapeHtml(product.description || '')}
+        </p>
+        <p><strong>Size:</strong> ${escapeHtml(size.name)} • <strong>₹${Number(
+          size.price
+        ).toFixed(0)}</strong></p>
+      </section>
+
+      <section class="customizer-section">
+        <h3>Choose Crust</h3>
+        <div class="choice-list" id="combo-crust-options">
+          ${crusts
+            .map((crust, index) => {
+              const crustPriceEntry = (crust.prices || []).find(
+                p => p.size === size.name
+              );
+              const extra = crustPriceEntry
+                ? Number(crustPriceEntry.price || 0)
+                : 0;
+              const priceText =
+                extra === 0 ? 'Free' : `+₹${extra.toFixed(0)}`;
+              return `
+                <label class="choice-row">
+                  <input
+                    type="radio"
+                    name="combo-crust"
+                    value="${index}"
+                    ${index === 0 ? 'checked' : ''}
+                  />
+                  <span class="choice-row-name">${escapeHtml(
+                    crust.name
+                  )}</span>
+                  <span class="choice-row-price">${priceText}</span>
+                </label>
+              `;
+            })
+            .join('')}
+        </div>
+      </section>
+
+      ${comboGroupsHtml}
+
+      ${addOnSectionHtml}
 
       <section class="customizer-section quantity-section">
         <div>
@@ -887,13 +1044,91 @@ function openComboCustomizer(product, comboCfg) {
     return entry ? Number(entry.price || 0) : 0;
   }
 
+  function getSelectedComboAddOns() {
+    const selected = [];
+
+    if (!addOns.length) return selected;
+
+    form
+      .querySelectorAll(
+        'input[name="combo-addon"]:checked:not(:disabled)'
+      )
+      .forEach(input => {
+        const addOn = addOns[Number(input.value)];
+        if (!addOn) return;
+
+        const price =
+          getOptionPriceForSize(addOn, size.name) || 0;
+        const quantitySelect = form.querySelector(
+          `[data-combo-addon-quantity="${input.value}"]`
+        );
+        const quantity = quantitySelect
+          ? Number(quantitySelect.value)
+          : 1;
+
+        selected.push({
+          name: addOn.name,
+          price,
+          quantity
+        });
+      });
+
+    return selected;
+  }
+
+  function initComboAddOnPrices() {
+    if (!addOns.length) return;
+
+    form
+      .querySelectorAll('input[name="combo-addon"]')
+      .forEach(input => {
+        const addOn = addOns[Number(input.value)];
+        if (!addOn) return;
+
+        const price =
+          getOptionPriceForSize(addOn, size.name);
+        const priceElement = form.querySelector(
+          `[data-combo-addon-price="${input.value}"]`
+        );
+        const quantitySelect = form.querySelector(
+          `[data-combo-addon-quantity="${input.value}"]`
+        );
+
+        const unavailable = price === null;
+
+        input.disabled = unavailable;
+        input.closest('.addon-row').classList.toggle(
+          'choice-disabled',
+          unavailable
+        );
+
+        if (unavailable) {
+          input.checked = false;
+        } else if (input.dataset.required === 'true') {
+          input.checked = true;
+        }
+
+        if (quantitySelect) {
+          quantitySelect.disabled = unavailable || !input.checked;
+        }
+
+        if (priceElement) {
+          priceElement.textContent = unavailable
+            ? 'Unavailable'
+            : price === 0
+              ? 'Included'
+              : `+₹${price.toFixed(0)}`;
+        }
+      });
+  }
+
   function calculateComboUnitPrice() {
     const crust = getSelectedCrust();
     const crustExtra = getSelectedCrustExtraPrice(crust);
 
     let extras = 0;
 
-    comboCfg.groups.forEach(group => {
+    groups.forEach(group => {
       const radio = form.querySelector(
         `input[name="combo-${group.key}"]:checked`
       );
@@ -903,7 +1138,20 @@ function openComboCustomizer(product, comboCfg) {
       extras += Number(opt.extraPrice || 0);
     });
 
-    return Number(size.price || 0) + crustExtra + extras;
+    const addOnSelections = getSelectedComboAddOns();
+    const addOnExtras = addOnSelections.reduce((total, addOn) => {
+      return (
+        total +
+        safeNumber(addOn.price, 0) * safeNumber(addOn.quantity, 1)
+      );
+    }, 0);
+
+    return (
+      Number(size.price || 0) +
+      crustExtra +
+      extras +
+      addOnExtras
+    );
   }
 
   function refreshComboTotal() {
@@ -915,8 +1163,40 @@ function openComboCustomizer(product, comboCfg) {
     if (btn) btn.textContent = `Add to Cart • ₹${total.toFixed(0)}`;
   }
 
+  initComboAddOnPrices();
+  refreshComboTotal();
+
   form.addEventListener('change', event => {
-    if (event.target.name && event.target.name.startsWith('combo-')) {
+    const target = event.target;
+
+    if (target.matches('input[name="combo-addon"]')) {
+      if (
+        target.dataset.required === 'true' &&
+        !target.checked
+      ) {
+        target.checked = true;
+        alert('This add-on is required.');
+        return;
+      }
+
+      const quantitySelect = form.querySelector(
+        `[data-combo-addon-quantity="${target.value}"]`
+      );
+      if (quantitySelect) {
+        quantitySelect.disabled =
+          target.disabled || !target.checked;
+      }
+
+      refreshComboTotal();
+      return;
+    }
+
+    if (target.matches('select[data-combo-addon-quantity]')) {
+      refreshComboTotal();
+      return;
+    }
+
+    if (target.name && target.name.startsWith('combo-')) {
       refreshComboTotal();
     }
   });
@@ -931,7 +1211,8 @@ function openComboCustomizer(product, comboCfg) {
         } else {
           comboQty = Math.max(1, comboQty - 1);
         }
-        document.getElementById('combo-qty').textContent = comboQty;
+        document.getElementById('combo-qty').textContent =
+          comboQty;
         refreshComboTotal();
       });
     });
@@ -939,25 +1220,33 @@ function openComboCustomizer(product, comboCfg) {
   form.addEventListener('submit', event => {
     event.preventDefault();
 
-    // collect selections
     const crust = getSelectedCrust();
     const crustExtra = getSelectedCrustExtraPrice(crust);
 
     const comboSelections = {};
-    for (const group of comboCfg.groups) {
+    for (const group of groups) {
       const radio = form.querySelector(
         `input[name="combo-${group.key}"]:checked`
       );
       if (!radio && group.required) {
-        alert(`Please choose an option for "${group.title || group.key}".`);
+        alert(
+          `Please choose an option for "${group.title || group.key}".`
+        );
         return;
       }
+      if (!radio) continue;
       const opt = group.options[Number(radio.value)];
+      if (!opt) continue;
+
       comboSelections[group.key] = {
+        groupKey: group.key,
+        groupTitle: group.title || group.key,
         label: opt.label,
         extraPrice: Number(opt.extraPrice || 0)
       };
     }
+
+    const selectedAddOns = getSelectedComboAddOns();
 
     const unitPrice = calculateComboUnitPrice();
 
@@ -974,10 +1263,10 @@ function openComboCustomizer(product, comboCfg) {
         name: crust.name,
         price: crustExtra
       },
-      addOns: [], // combos ke liye abhi addOns nahi use kar rahe
+      addOns: selectedAddOns,
       quantity: comboQty,
       unitPrice,
-      comboSelections // sirf frontend ke liye (backend ignore karega)
+      comboSelections
     });
 
     closeCustomizer();
@@ -990,9 +1279,6 @@ function openComboCustomizer(product, comboCfg) {
       window.location.href = 'cart.html';
     }
   });
-
-  // initial total
-  refreshComboTotal();
 
   modal.classList.remove('hidden');
   modal.setAttribute('aria-hidden', 'false');

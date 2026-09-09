@@ -16,6 +16,7 @@
       .replaceAll("'", '&#039;');
   }
 
+  // Cart item identity (for merging quantities) – now also includes comboSelections
   function buildConfigurationKey(item) {
     const addOnKey = (item.addOns || [])
       .map(addOn => {
@@ -24,11 +25,26 @@
       .sort()
       .join('|');
 
+    const comboKey = item.comboSelections
+      ? Object.values(item.comboSelections)
+          .map(selection => {
+            if (!selection) return '';
+            const groupKey = selection.groupKey || '';
+            const label = selection.label || '';
+            const extraPrice = safeNumber(selection.extraPrice, 0);
+            return `${groupKey}:${label}:${extraPrice}`;
+          })
+          .filter(Boolean)
+          .sort()
+          .join('|')
+      : '';
+
     return [
       item.productId,
       item.size?.name || '',
       item.crust?.name || '',
-      addOnKey
+      addOnKey,
+      comboKey
     ].join('::');
   }
 
@@ -197,6 +213,21 @@
             .join(', ')
         : 'No add-ons';
 
+      const comboSelections = item.comboSelections || null;
+      const comboText = comboSelections
+        ? Object.values(comboSelections)
+            .map(selection => {
+              if (!selection || !selection.label) return '';
+              const title =
+                selection.groupTitle || selection.groupKey || '';
+              return title
+                ? `${title}: ${selection.label}`
+                : selection.label;
+            })
+            .filter(Boolean)
+            .join(', ')
+        : '';
+
       const cartItem = document.createElement('article');
       cartItem.className = 'cart-item';
 
@@ -233,6 +264,15 @@
               <strong>Crust:</strong>
               ${escapeHtml(item.crust?.name || '')}
             </span>
+
+            ${
+              comboText
+                ? `<span>
+                    <strong>Combo:</strong>
+                    ${escapeHtml(comboText)}
+                  </span>`
+                : ''
+            }
 
             <span>
               <strong>Add-ons:</strong>

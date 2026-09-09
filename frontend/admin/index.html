@@ -12,17 +12,21 @@
     <div class="nav-logo">
       <span>🍕 Perfect <span class="dot">Pizza</span> Admin</span>
     </div>
-    <nav class="nav-links">
-      <!-- YE teen hi links chahiye -->
-      <a href="/admin/products.html">Menu Items</a>
-      <a href="/admin/customers.html">Customers</a>
-      <a href="/admin/delivery-rules.html">Delivery Rules</a>
-      <a href="/admin/coupons.html">Coupons</a>
+   <nav class="nav-links">
+  <select id="admin-outlet-select" class="nav-outlet-select">
+    <option value="">All Outlets</option>
+  </select>
 
-      <a href="/login.html" data-login-link>Login</a>
-      <a href="#" data-logout-link style="display:none">Logout</a>
-      <span class="text-small" data-user-name></span>
-    </nav>
+  <a href="/admin/products.html">Menu Items</a>
+  <a href="/admin/outlets.html">Outlets</a>
+  <a href="/admin/customers.html">Customers</a>
+  <a href="/admin/delivery-rules.html">Delivery Rules</a>
+  <a href="/admin/coupons.html">Coupons</a>
+
+  <a href="/login.html" data-login-link>Login</a>
+  <a href="#" data-logout-link style="display:none">Logout</a>
+  <span class="text-small" data-user-name></span>
+</nav>
   </div>
 </header>
 
@@ -30,7 +34,7 @@
   <div class="page-heading">
     <div>
       <h1>Admin Dashboard</h1>
-      <p>Today&apos;s snapshot for Perfect Pizza – Singhpur Chauraha.</p>
+      <p>Today's snapshot for Perfect Pizza – Singhpur Chauraha.</p>
     </div>
   </div>
 
@@ -39,7 +43,7 @@
       <article class="order-card">
         <div class="order-card-main">
           <div>
-            <div class="order-id">Today&apos;s Orders</div>
+            <div class="order-id">Today's Orders</div>
             <div class="order-amount" id="admin-today-orders">0</div>
           </div>
         </div>
@@ -48,7 +52,7 @@
       <article class="order-card">
         <div class="order-card-main">
           <div>
-            <div class="order-id">Today&apos;s Sales</div>
+            <div class="order-id">Today's Sales</div>
             <div class="order-amount" id="admin-today-sales">₹0</div>
           </div>
         </div>
@@ -83,7 +87,7 @@
     </div>
   </section>
 
-  <!-- NEW: Outlet settings section -->
+  <!-- Outlet settings section -->
   <section class="order-section" style="margin-top:2rem;">
     <h2>Outlet Settings</h2>
     <form id="admin-outlet-form" class="card" style="padding:1rem;max-width:420px;">

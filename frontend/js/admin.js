@@ -1,5 +1,8 @@
 // ====================== COMMON ADMIN INIT ======================
 
+const ADMIN_OUTLET_KEY = 'pp_admin_outletId';
+const ADMIN_OUTLET_NAME_KEY = 'pp_admin_outletName';
+
 document.addEventListener('DOMContentLoaded', () => {
   if (typeof setupAuthNav === 'function') {
     setupAuthNav();
@@ -8,33 +11,41 @@ document.addEventListener('DOMContentLoaded', () => {
   // Only ADMIN user can access admin code
   if (!ensureAdmin()) return;
 
-  if (document.getElementById('admin-overview')) {
-    loadAdminOverview();
-  }
+  // Pehle outlet dropdown load karo, phir baaki pages init
+  initAdminOutletSelector().then(() => {
+    if (document.getElementById('admin-overview')) {
+      loadAdminOverview();
+    }
 
-  if (document.getElementById('admin-outlet-form')) {
-    initAdminOutletForm();
-  }
+    if (document.getElementById('admin-outlet-form')) {
+      initAdminOutletForm();
+    }
 
-  if (document.getElementById('admin-products-table')) {
-    initAdminProductsPage();
-  }
+    if (document.getElementById('admin-products-table')) {
+      initAdminProductsPage();
+    }
 
-  if (document.getElementById('admin-orders-table')) {
-    initAdminOrdersPage();
-  }
+    if (document.getElementById('admin-orders-table')) {
+      initAdminOrdersPage();
+    }
 
-  if (document.getElementById('admin-customers-table')) {
-    initAdminCustomersPage();
-  }
+    if (document.getElementById('admin-customers-table')) {
+      initAdminCustomersPage();
+    }
 
-  if (document.getElementById('admin-delivery-rules-table')) {
-    initAdminDeliveryRulesPage();
-  }
+    if (document.getElementById('admin-delivery-rules-table')) {
+      initAdminDeliveryRulesPage();
+    }
 
-  if (document.getElementById('admin-coupons-table')) {
-    initAdminCouponsPage();
-  }
+    if (document.getElementById('admin-coupons-table')) {
+      initAdminCouponsPage();
+    }
+
+    // NEW: Outlets management page
+    if (document.getElementById('admin-outlets-table')) {
+      initAdminOutletsPage();
+    }
+  });
 });
 
 function ensureAdmin() {
@@ -56,6 +67,65 @@ function ensureAdmin() {
   }
 
   return true;
+}
+
+// --------- Outlet selection helpers (multi-outlet) ----------
+
+function getCurrentAdminOutletId() {
+  return localStorage.getItem(ADMIN_OUTLET_KEY) || '';
+}
+
+function getCurrentAdminOutletName() {
+  return localStorage.getItem(ADMIN_OUTLET_NAME_KEY) || '';
+}
+
+function setCurrentAdminOutlet(id, name) {
+  if (id) {
+    localStorage.setItem(ADMIN_OUTLET_KEY, id);
+    localStorage.setItem(ADMIN_OUTLET_NAME_KEY, name || '');
+  } else {
+    localStorage.removeItem(ADMIN_OUTLET_KEY);
+    localStorage.removeItem(ADMIN_OUTLET_NAME_KEY);
+  }
+}
+
+async function initAdminOutletSelector() {
+  const selectEl = document.getElementById('admin-outlet-select');
+  if (!selectEl) return;
+
+  try {
+    const res = await Api.get('/admin/outlets');
+    const outlets = res.outlets || [];
+
+    const currentId = getCurrentAdminOutletId();
+
+    selectEl.innerHTML =
+      '<option value="">All Outlets</option>' +
+      outlets
+        .map(
+          o =>
+            `<option value="${o._id}">${o.name}${
+              o.city ? ' – ' + o.city : ''
+            }</option>`
+        )
+        .join('');
+
+    if (currentId) {
+      selectEl.value = currentId;
+    }
+
+    selectEl.addEventListener('change', () => {
+      const id = selectEl.value || '';
+      const found = outlets.find(o => o._id === id);
+      const name = found ? found.name : '';
+      setCurrentAdminOutlet(id, name);
+      // Simple: page reload so saare sections naya outlet use karein
+      window.location.reload();
+    });
+  } catch (err) {
+    console.error('Admin outlet selector load error', err);
+    // Agar fail ho gaya to bhi page chalega, sirf outlet filter nahi lagega
+  }
 }
 
 // Global for change-image flow + product cache
@@ -416,6 +486,15 @@ async function handleAddProduct(e) {
   if (priceMedium) sizes.push({ name: 'MEDIUM', price: priceMedium });
   if (priceLarge) sizes.push({ name: 'LARGE', price: priceLarge });
 
+  const availableFromHour =
+    form.availableFromHour && form.availableFromHour.value !== ''
+      ? Number(form.availableFromHour.value)
+      : null;
+  const availableToHour =
+    form.availableToHour && form.availableToHour.value !== ''
+      ? Number(form.availableToHour.value)
+      : null;
+
   const productBody = {
     name,
     category,
@@ -430,7 +509,9 @@ async function handleAddProduct(e) {
         prices: sizes.map(s => ({ size: s.name, price: 0 }))
       }
     ],
-    addOns: []
+    addOns: [],
+    availableFromHour,
+    availableToHour
   };
 
   const formData = new FormData();
@@ -494,7 +575,7 @@ async function handleChangeProductImageFile(e) {
   }
 }
 
-// ========== EDIT PRODUCT MODAL + ADD-ONS ==========
+// ========== EDIT PRODUCT MODAL + ADD-ONS + COMBO CONFIG ==========
 
 function setupEditProductModal() {
   const modal = document.getElementById('admin-edit-product-modal');
@@ -504,6 +585,9 @@ function setupEditProductModal() {
   const form = document.getElementById('admin-edit-product-form');
   const cancelBtn = document.getElementById('edit-product-cancel');
   const addAddonBtn = document.getElementById('edit-addons-add-btn');
+  const addComboGroupBtn = document.getElementById(
+    'edit-combo-add-group-btn'
+  );
 
   if (form) {
     form.addEventListener('submit', handleSaveEditProduct);
@@ -521,6 +605,10 @@ function setupEditProductModal() {
   if (addAddonBtn) {
     addAddonBtn.addEventListener('click', () => addEmptyAddonRow());
   }
+
+  if (addComboGroupBtn) {
+    addComboGroupBtn.addEventListener('click', () => addEmptyComboGroup());
+  }
 }
 
 function openEditProductModal(productId) {
@@ -532,34 +620,95 @@ function openEditProductModal(productId) {
 
   const idEl = document.getElementById('edit-product-id');
   const nameEl = document.getElementById('edit-name');
-  const catEl = document.getElementById('edit-category');
+  const catSelectEl = document.getElementById('edit-category-select');
+  const catCustomEl = document.getElementById('edit-category-custom');
   const descEl = document.getElementById('edit-description');
   const isVegEl = document.getElementById('edit-isVeg');
   const isAvailEl = document.getElementById('edit-isAvailable');
   const priceRegEl = document.getElementById('edit-price-regular');
   const priceMedEl = document.getElementById('edit-price-medium');
   const priceLgEl = document.getElementById('edit-price-large');
+  const fromEl = document.getElementById('edit-available-from');
+  const toEl = document.getElementById('edit-available-to');
 
   if (!idEl) return;
 
   idEl.value = product._id || '';
   if (nameEl) nameEl.value = product.name || '';
-  if (catEl) catEl.value = product.category || '';
   if (descEl) descEl.value = product.description || '';
   if (isVegEl) isVegEl.value = product.isVeg ? 'true' : 'false';
   if (isAvailEl) isAvailEl.checked = !!product.isAvailable;
 
+  // Fill category options from all products
+  if (catSelectEl) {
+    const allCats = Array.from(
+      new Set(
+        Object.values(adminProductsById)
+          .map(p => p.category)
+          .filter(Boolean)
+      )
+    );
+
+    catSelectEl.innerHTML =
+      '<option value="">Select category</option>' +
+      allCats.map(c => `<option value="${c}">${c}</option>`).join('') +
+      '<option value="__custom">Other (custom)</option>';
+
+    const currentCat = product.category || '';
+    if (allCats.includes(currentCat)) {
+      catSelectEl.value = currentCat;
+      if (catCustomEl) {
+        catCustomEl.style.display = 'none';
+        catCustomEl.value = '';
+      }
+    } else if (currentCat) {
+      catSelectEl.value = '__custom';
+      if (catCustomEl) {
+        catCustomEl.value = currentCat;
+        catCustomEl.style.display = 'block';
+      }
+    } else {
+      catSelectEl.value = '';
+      if (catCustomEl) {
+        catCustomEl.value = '';
+        catCustomEl.style.display = 'none';
+      }
+    }
+
+    // change handler (only once)
+    if (!catSelectEl.dataset.bound) {
+      catSelectEl.dataset.bound = 'true';
+      catSelectEl.addEventListener('change', () => {
+        if (!catCustomEl) return;
+        if (catSelectEl.value === '__custom') {
+          catCustomEl.style.display = 'block';
+        } else {
+          catCustomEl.style.display = 'none';
+          catCustomEl.value = '';
+        }
+      });
+    }
+  }
+
+  // Prices
   const sizes = product.sizes || [];
   const findPrice = sizeName => {
     const s = sizes.find(s => s.name === sizeName);
     return s ? s.price : '';
   };
-
   if (priceRegEl) priceRegEl.value = findPrice('REGULAR') || '';
   if (priceMedEl) priceMedEl.value = findPrice('MEDIUM') || '';
   if (priceLgEl) priceLgEl.value = findPrice('LARGE') || '';
 
+  // Time window
+  if (fromEl) fromEl.value = product.availableFromHour ?? '';
+  if (toEl) toEl.value = product.availableToHour ?? '';
+
+  // Add-ons
   renderEditAddOns(product.addOns || []);
+
+  // Combo config
+  renderEditComboConfig(product.comboConfig || null);
 
   const modal = document.getElementById('admin-edit-product-modal');
   if (modal) {
@@ -707,22 +856,247 @@ function collectEditAddOnsFromDOM() {
   return addOns;
 }
 
+// --------- Combo config helpers ---------
+
+function createComboOptionRow(groupEl, option) {
+  const optionsContainer = groupEl.querySelector('.edit-combo-options');
+  if (!optionsContainer) return;
+
+  const row = document.createElement('div');
+  row.className = 'edit-combo-option-row';
+  row.style.display = 'grid';
+  row.style.gridTemplateColumns = '2fr 1fr auto';
+  row.style.gap = '0.5rem';
+  row.style.alignItems = 'center';
+  row.style.marginBottom = '0.5rem';
+
+  const label = option?.label || '';
+  const extraPrice =
+    typeof option?.extraPrice === 'number' ? option.extraPrice : '';
+
+  row.innerHTML = `
+    <input
+      type="text"
+      class="input"
+      placeholder="Pizza / item name"
+      data-combo-option-field="label"
+      value="${label}"
+    />
+    <input
+      type="number"
+      class="input"
+      min="0"
+      step="1"
+      placeholder="Extra price"
+      data-combo-option-field="extraPrice"
+      value="${extraPrice}"
+    />
+    <button
+      type="button"
+      class="btn btn-danger-outline btn-sm"
+      data-combo-option-remove
+    >
+      &times;
+    </button>
+  `;
+
+  const removeBtn = row.querySelector('[data-combo-option-remove]');
+  removeBtn.addEventListener('click', () => row.remove());
+
+  optionsContainer.appendChild(row);
+}
+
+function createComboGroupRow(group) {
+  const container = document.getElementById('edit-combo-groups-container');
+  if (!container) return;
+
+  const groupEl = document.createElement('div');
+  groupEl.className = 'edit-combo-group';
+  groupEl.style.border = '1px solid #eee';
+  groupEl.style.borderRadius = '6px';
+  groupEl.style.padding = '0.5rem';
+  groupEl.style.marginBottom = '0.75rem';
+
+  const title = group?.title || group?.name || '';
+  const required =
+    typeof group?.required === 'boolean' ? group.required : true;
+  const options = Array.isArray(group?.options) ? group.options : [];
+
+  groupEl.innerHTML = `
+    <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;flex-wrap:wrap;">
+      <input
+        type="text"
+        class="input"
+        placeholder="Group title (e.g. Choose Pizza [Regular])"
+        data-combo-group-field="title"
+        value="${title}"
+        style="flex:1 1 200px;"
+      />
+      <label class="text-small">
+        <input
+          type="checkbox"
+          data-combo-group-field="required"
+          ${required ? 'checked' : ''}
+        />
+        Required
+      </label>
+      <button
+        type="button"
+        class="btn btn-danger-outline btn-sm"
+        data-combo-group-remove
+      >
+        &times;
+      </button>
+    </div>
+    <div class="edit-combo-options"></div>
+    <button
+      type="button"
+      class="btn btn-secondary btn-sm"
+      data-combo-add-option
+    >
+      Add Option
+    </button>
+  `;
+
+  const addOptionBtn = groupEl.querySelector('[data-combo-add-option]');
+  addOptionBtn.addEventListener('click', () =>
+    createComboOptionRow(groupEl, {})
+  );
+
+  const removeGroupBtn = groupEl.querySelector('[data-combo-group-remove]');
+  removeGroupBtn.addEventListener('click', () => groupEl.remove());
+
+  // Existing options
+  if (options.length) {
+    options.forEach(opt => createComboOptionRow(groupEl, opt));
+  } else {
+    // Ek empty option row by default
+    createComboOptionRow(groupEl, {});
+  }
+
+  container.appendChild(groupEl);
+}
+
+function renderEditComboConfig(comboConfig) {
+  const container = document.getElementById('edit-combo-groups-container');
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (!comboConfig) return;
+
+  const rawGroups = Array.isArray(comboConfig.groups)
+    ? comboConfig.groups
+    : Array.isArray(comboConfig)
+      ? comboConfig
+      : [];
+
+  rawGroups.forEach(group => createComboGroupRow(group));
+}
+
+function addEmptyComboGroup() {
+  createComboGroupRow({
+    title: '',
+    required: true,
+    options: [{ label: '', extraPrice: 0 }]
+  });
+}
+
+function collectEditComboConfigFromDOM() {
+  const container = document.getElementById('edit-combo-groups-container');
+  if (!container) return null;
+
+  const groupEls = container.querySelectorAll('.edit-combo-group');
+  const groups = [];
+
+  groupEls.forEach(groupEl => {
+    const titleEl = groupEl.querySelector(
+      '[data-combo-group-field="title"]'
+    );
+    const requiredEl = groupEl.querySelector(
+      '[data-combo-group-field="required"]'
+    );
+    const rawTitle = (titleEl?.value || '').trim();
+
+    const optionsContainer = groupEl.querySelector('.edit-combo-options');
+    const optionRows = optionsContainer
+      ? optionsContainer.querySelectorAll('.edit-combo-option-row')
+      : [];
+    const options = [];
+
+    optionRows.forEach(row => {
+      const labelEl = row.querySelector(
+        '[data-combo-option-field="label"]'
+      );
+      const extraPriceEl = row.querySelector(
+        '[data-combo-option-field="extraPrice"]'
+      );
+
+      const label = (labelEl?.value || '').trim();
+      const extraPrice = Number(extraPriceEl?.value || 0);
+
+      // Blank option -> ignore
+      if (!label && !extraPrice) return;
+
+      options.push({
+        label,
+        extraPrice
+      });
+    });
+
+    // Pure empty group (no title, no options) -> ignore
+    if (!rawTitle && !options.length) return;
+
+    const keyBase = rawTitle
+      ? rawTitle
+          .toLowerCase()
+          .replace(/\s+/g, '_')
+          .replace(/[^a-z0-9_]/g, '')
+      : '';
+    const key =
+      keyBase ||
+      `group_${groups.length + 1}`;
+
+    groups.push({
+      key,
+      title: rawTitle || key,
+      required: !!(requiredEl && requiredEl.checked),
+      options
+    });
+  });
+
+  return groups.length ? groups : null;
+}
+
 async function handleSaveEditProduct(e) {
   e.preventDefault();
 
   const idEl = document.getElementById('edit-product-id');
   const nameEl = document.getElementById('edit-name');
-  const catEl = document.getElementById('edit-category');
+  const catSelectEl = document.getElementById('edit-category-select');
+  const catCustomEl = document.getElementById('edit-category-custom');
   const descEl = document.getElementById('edit-description');
   const isVegEl = document.getElementById('edit-isVeg');
   const isAvailEl = document.getElementById('edit-isAvailable');
   const priceRegEl = document.getElementById('edit-price-regular');
   const priceMedEl = document.getElementById('edit-price-medium');
   const priceLgEl = document.getElementById('edit-price-large');
+  const fromEl = document.getElementById('edit-available-from');
+  const toEl = document.getElementById('edit-available-to');
 
   const id = idEl?.value;
   const name = (nameEl?.value || '').trim();
-  const category = (catEl?.value || '').trim();
+
+  // Category from dropdown + custom
+  let category = '';
+  if (catSelectEl) {
+    const val = catSelectEl.value;
+    if (val === '__custom') {
+      category = (catCustomEl?.value || '').trim();
+    } else {
+      category = (val || '').trim();
+    }
+  }
+
   const description = (descEl?.value || '').trim();
   const isVeg = isVegEl?.value === 'true';
   const isAvailable = !!(isAvailEl && isAvailEl.checked);
@@ -751,6 +1125,13 @@ async function handleSaveEditProduct(e) {
   if (priceLg) sizes.push({ name: 'LARGE', price: priceLg });
 
   const addOns = collectEditAddOnsFromDOM();
+  const comboGroups = collectEditComboConfigFromDOM();
+
+  // Time window
+  const availableFromHour =
+    fromEl && fromEl.value !== '' ? Number(fromEl.value) : null;
+  const availableToHour =
+    toEl && toEl.value !== '' ? Number(toEl.value) : null;
 
   const orig = adminProductsById[id] || {};
   const productBody = {
@@ -761,7 +1142,13 @@ async function handleSaveEditProduct(e) {
     isAvailable,
     sizes,
     crusts: Array.isArray(orig.crusts) ? orig.crusts : [],
-    addOns
+    addOns,
+    comboConfig:
+      comboGroups && comboGroups.length
+        ? { groups: comboGroups }
+        : null,
+    availableFromHour,
+    availableToHour
   };
 
   try {
@@ -784,7 +1171,12 @@ async function loadAdminOverview() {
   const customersEl = document.getElementById('admin-total-customers');
 
   try {
-    const res = await Api.get('/admin/overview');
+    const outletId = getCurrentAdminOutletId();
+    const url = outletId
+      ? `/admin/overview?outletId=${outletId}`
+      : '/admin/overview';
+
+    const res = await Api.get(url);
     const { today, totalCustomers } = res;
 
     if (totalOrdersEl) totalOrdersEl.textContent = today.totalOrders || 0;
@@ -885,10 +1277,12 @@ async function initAdminOrdersPage() {
   const statusSelect = document.getElementById('admin-order-status');
   const searchInput = document.getElementById('admin-order-search');
   const reloadBtn = document.getElementById('admin-order-reload');
+  const todayOnlyEl = document.getElementById('admin-order-today-only');
 
   const load = () => loadAdminOrders(1);
 
   statusSelect && statusSelect.addEventListener('change', load);
+  todayOnlyEl && todayOnlyEl.addEventListener('change', load);
   searchInput &&
     searchInput.addEventListener('keyup', e => {
       if (e.key === 'Enter') load();
@@ -901,6 +1295,7 @@ async function initAdminOrdersPage() {
 async function loadAdminOrders(page = 1) {
   const statusSelect = document.getElementById('admin-order-status');
   const searchInput = document.getElementById('admin-order-search');
+  const todayOnlyEl = document.getElementById('admin-order-today-only');
   const tbody = document.getElementById('admin-orders-body');
   const loadingEl = document.getElementById('admin-orders-loading');
   const emptyEl = document.getElementById('admin-orders-empty');
@@ -913,12 +1308,16 @@ async function loadAdminOrders(page = 1) {
 
   const status = statusSelect ? statusSelect.value : 'ALL';
   const search = searchInput ? searchInput.value.trim() : '';
+  const todayOnly = todayOnlyEl ? todayOnlyEl.checked : false;
+  const outletId = getCurrentAdminOutletId();
 
   const params = new URLSearchParams();
   params.set('status', status || 'ALL');
   params.set('page', page);
   params.set('limit', 50);
   if (search) params.set('search', search);
+  if (todayOnly) params.set('onlyToday', 'true');
+  if (outletId) params.set('outletId', outletId);
 
   try {
     const res = await Api.get(`/admin/orders?${params.toString()}`);
@@ -931,6 +1330,14 @@ async function loadAdminOrders(page = 1) {
       return;
     }
 
+    const allowedStatuses = [
+      'PLACED',
+      'BAKING',
+      'OUT_FOR_DELIVERY',
+      'DELIVERED',
+      'CANCELLED'
+    ];
+
     orders.forEach(o => {
       const tr = document.createElement('tr');
 
@@ -938,6 +1345,18 @@ async function loadAdminOrders(page = 1) {
         dateStyle: 'medium',
         timeStyle: 'short'
       });
+
+      const statusKey = (o.status || '').toLowerCase(); // e.g. placed, out_for_delivery
+      const badgeClass = `status-${statusKey}`;
+
+      const statusOptions = allowedStatuses
+        .map(
+          s =>
+            `<option value="${s}" ${
+              s === o.status ? 'selected' : ''
+            }>${s}</option>`
+        )
+        .join('');
 
       tr.innerHTML = `
         <td>${String(o._id).slice(-6)}</td>
@@ -950,7 +1369,15 @@ async function loadAdminOrders(page = 1) {
         <td>${o.payment?.paymentType || 'COD'}<br /><span class="text-small">${
         o.payment?.paymentStatus || 'PENDING'
       }</span></td>
-        <td>${o.status}</td>
+        <td>${o.outletName || '-'}</td>
+        <td>
+          <span class="order-status-badge ${badgeClass}">${
+        o.status
+      }</span><br/>
+          <select class="text-small" data-change-status="${o._id}">
+            ${statusOptions}
+          </select>
+        </td>
         <td>
           <button class="btn btn-danger btn-sm admin-order-delete-btn" data-id="${
             o._id
@@ -969,11 +1396,30 @@ async function loadAdminOrders(page = 1) {
         deleteAdminOrder(id, () => loadAdminOrders(page));
       });
     });
+
+    tbody.querySelectorAll('[data-change-status]').forEach(select => {
+      select.addEventListener('change', () => {
+        const id = select.dataset.changeStatus;
+        const newStatus = select.value;
+        if (!newStatus) return;
+        updateAdminOrderStatus(id, newStatus, () => loadAdminOrders(page));
+      });
+    });
   } catch (err) {
     console.error('Admin load orders error', err);
     loadingEl.textContent =
       err.message ||
       'Unable to load orders. Please try again after some time.';
+  }
+}
+
+async function updateAdminOrderStatus(id, newStatus, onDone) {
+  try {
+    await Api.patch(`/orders/${id}/status`, { status: newStatus });
+    onDone && onDone();
+  } catch (err) {
+    console.error('Admin update order status error', err);
+    alert(err.message || 'Unable to update order status.');
   }
 }
 
@@ -1405,5 +1851,222 @@ async function handleAddCoupon(e) {
     loadAdminCoupons();
   } catch (err) {
     alert(err.message || 'Unable to create the new coupon.');
+  }
+}
+
+// ====================== OUTLETS (admin/outlets.html) ======================
+
+async function initAdminOutletsPage() {
+  loadAdminOutlets();
+
+  const addForm = document.getElementById('admin-add-outlet-form');
+  if (addForm && !addForm.dataset.bound) {
+    addForm.dataset.bound = 'true';
+    addForm.addEventListener('submit', handleAddOutlet);
+  }
+}
+
+async function loadAdminOutlets() {
+  const tbody = document.getElementById('admin-outlets-body');
+  const loadingEl = document.getElementById('admin-outlets-loading');
+  const emptyEl = document.getElementById('admin-outlets-empty');
+
+  if (!tbody || !loadingEl || !emptyEl) return;
+
+  loadingEl.style.display = 'block';
+  emptyEl.style.display = 'none';
+  tbody.innerHTML = '';
+
+  try {
+    const res = await Api.get('/admin/outlets/manage');
+    const outlets = res.outlets || [];
+
+    loadingEl.style.display = 'none';
+
+    if (!outlets.length) {
+      emptyEl.style.display = 'block';
+      return;
+    }
+
+    outlets.forEach(o => {
+      const tr = document.createElement('tr');
+
+      tr.innerHTML = `
+        <td><input type="text" class="input" data-field="name" data-id="${
+          o._id
+        }" value="${o.name || ''}" /></td>
+        <td><input type="text" class="input" data-field="code" data-id="${
+          o._id
+        }" value="${o.code || ''}" /></td>
+        <td><input type="text" class="input" data-field="city" data-id="${
+          o._id
+        }" value="${o.city || ''}" /></td>
+        <td><input type="number" class="input" min="0" max="23" data-field="openHour" data-id="${
+          o._id
+        }" value="${
+        typeof o.openHour === 'number' ? o.openHour : 10
+      }" /></td>
+        <td><input type="number" class="input" min="0" max="23" data-field="closeHour" data-id="${
+          o._id
+        }" value="${
+        typeof o.closeHour === 'number' ? o.closeHour : 23
+      }" /></td>
+        <td><input type="number" class="input" min="0" step="0.1" data-field="deliveryRadiusKm" data-id="${
+          o._id
+        }" value="${
+        typeof o.deliveryRadiusKm === 'number' ? o.deliveryRadiusKm : 5
+      }" /></td>
+        <td>
+          <label class="text-small">
+            <input type="checkbox" data-field="enableOnlineOrders" data-id="${
+              o._id
+            }" ${
+        o.settings && o.settings.enableOnlineOrders ? 'checked' : ''
+      } />
+            ON
+          </label>
+        </td>
+        <td>
+          <label class="text-small">
+            <input type="checkbox" data-field="enableBogoTuesday" data-id="${
+              o._id
+            }" ${
+        o.settings && o.settings.enableBogoTuesday ? 'checked' : ''
+      } />
+            ON
+          </label>
+        </td>
+        <td>
+          <button class="btn btn-secondary btn-sm" data-toggle-outlet="${
+            o._id
+          }">
+            ${o.isActive ? 'Active' : 'Inactive'}
+          </button>
+        </td>
+        <td>
+          <button class="btn btn-primary btn-sm" data-save-outlet="${
+            o._id
+          }">
+            Save
+          </button>
+        </td>
+      `;
+
+      tbody.appendChild(tr);
+    });
+
+    tbody.querySelectorAll('[data-save-outlet]').forEach(btn => {
+      btn.addEventListener('click', () =>
+        handleSaveOutlet(btn.dataset.saveOutlet)
+      );
+    });
+
+    tbody.querySelectorAll('[data-toggle-outlet]').forEach(btn => {
+      btn.addEventListener('click', () =>
+        handleToggleOutletActive(btn.dataset.toggleOutlet)
+      );
+    });
+  } catch (err) {
+    console.error('Admin load outlets error', err);
+    loadingEl.textContent =
+      err.message || 'Unable to load outlets right now.';
+  }
+}
+
+async function handleSaveOutlet(id) {
+  const rowInputs = document.querySelectorAll(
+    `[data-id="${id}"][data-field]`
+  );
+  const body = {};
+
+  rowInputs.forEach(input => {
+    const field = input.dataset.field;
+    let value =
+      input.type === 'checkbox' ? input.checked : (input.value ?? '');
+
+    if (typeof value === 'string') {
+      value = value.trim();
+    }
+
+    // empty name/code/city bhejne ki zarurat nahi (purana value DB me rahe)
+    if (
+      (field === 'name' || field === 'code' || field === 'city') &&
+      !value
+    ) {
+      return;
+    }
+
+    if (field === 'openHour' || field === 'closeHour' || field === 'deliveryRadiusKm') {
+      const n = Number(value);
+      if (!Number.isNaN(n)) body[field] = n;
+    } else if (field === 'enableOnlineOrders' || field === 'enableBogoTuesday') {
+      body[field] = !!value;
+    } else if (field === 'name' || field === 'code' || field === 'city') {
+      body[field] = value;
+    }
+    // lat/lng/phoneNumbers agar baad me add karne ho to yahan bhi handle kar sakte ho
+  });
+
+  try {
+    await Api.put(`/admin/outlets/${id}`, body);
+    alert('Outlet updated.');
+    loadAdminOutlets();
+  } catch (err) {
+    console.error('Admin save outlet error', err);
+    const msg =
+      (err.data && err.data.message) ||
+      err.message ||
+      'Unable to update the outlet.';
+    const detail = err.data && err.data.error ? `\n${err.data.error}` : '';
+    alert(msg + detail);
+  }
+}
+
+async function handleToggleOutletActive(id) {
+  try {
+    await Api.patch(`/admin/outlets/${id}/toggle`, {});
+    loadAdminOutlets();
+  } catch (err) {
+    console.error('Admin toggle outlet error', err);
+    alert(err.message || 'Unable to toggle this outlet.');
+  }
+}
+
+async function handleAddOutlet(e) {
+  e.preventDefault();
+  const form = e.target;
+
+  const body = {
+    name: (form.name?.value || '').trim(),
+    code: (form.code?.value || '').trim(),
+    city: (form.city?.value || '').trim(),
+    openHour:
+      form.openHour && form.openHour.value !== ''
+        ? Number(form.openHour.value)
+        : 10,
+    closeHour:
+      form.closeHour && form.closeHour.value !== ''
+        ? Number(form.closeHour.value)
+        : 23,
+    deliveryRadiusKm:
+      form.deliveryRadiusKm && form.deliveryRadiusKm.value !== ''
+        ? Number(form.deliveryRadiusKm.value)
+        : 5,
+    enableOnlineOrders: !!(form.enableOnlineOrders && form.enableOnlineOrders.checked),
+    enableBogoTuesday: !!(form.enableBogoTuesday && form.enableBogoTuesday.checked)
+  };
+
+  if (!body.name || !body.code) {
+    alert('Name and Code are required for an outlet.');
+    return;
+  }
+
+  try {
+    await Api.post('/admin/outlets', body);
+    form.reset();
+    loadAdminOutlets();
+  } catch (err) {
+    console.error('Admin add outlet error', err);
+    alert(err.message || 'Unable to create the new outlet.');
   }
 }

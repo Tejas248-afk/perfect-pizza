@@ -7,135 +7,140 @@
   <link rel="stylesheet" href="../css/style.css" />
 </head>
 <body>
-  <header class="navbar">
-    <div class="navbar-inner">
-      <div class="nav-logo">
-        <span>🍕 Perfect <span class="dot">Pizza</span> Admin</span>
-      </div>
-      <nav class="nav-links">
-        <a href="/admin/products.html">Menu Items</a>
-        <a href="/admin/customers.html">Customers</a>
-        <a href="/admin/delivery-rules.html">Delivery Rules</a>
-        <a href="/admin/coupons.html">Coupons</a>
-
-        <a href="/login.html" data-login-link>Login</a>
-        <a href="#" data-logout-link style="display:none">Logout</a>
-        <span class="text-small" data-user-name></span>
-      </nav>
+<header class="navbar">
+  <div class="navbar-inner">
+    <div class="nav-logo">
+      <span>🍕 Perfect <span class="dot">Pizza</span> Admin</span>
     </div>
-  </header>
+    <nav class="nav-links">
+  <select id="admin-outlet-select" class="nav-outlet-select">
+    <option value="">All Outlets</option>
+  </select>
 
-  <main class="container">
-    <div class="page-heading">
-      <div>
-        <h1>Coupons</h1>
-        <p>
-          Time-based and day-based coupons configure karein.
-          Example: 2PM–4PM ke beech 20% off.
-        </p>
-      </div>
+  <a href="/admin/products.html">Menu Items</a>
+  <a href="/admin/outlets.html">Outlets</a>
+  <a href="/admin/customers.html">Customers</a>
+  <a href="/admin/delivery-rules.html">Delivery Rules</a>
+  <a href="/admin/coupons.html">Coupons</a>
+
+  <a href="/login.html" data-login-link>Login</a>
+  <a href="#" data-logout-link style="display:none">Logout</a>
+  <span class="text-small" data-user-name></span>
+</nav>
+  </div>
+</header>
+
+<main class="container">
+  <div class="page-heading">
+    <div>
+      <h1>Coupons</h1>
+      <p>
+        Time-based and day-based coupons configure karein.
+        Example: 2PM–4PM ke beech 20% off.
+      </p>
+    </div>
+  </div>
+
+  <section class="order-section">
+    <h2 style="margin-top:0">Existing Coupons</h2>
+    <div id="admin-coupons-loading" class="loading">
+      Loading coupons...
+    </div>
+    <div
+      id="admin-coupons-empty"
+      class="empty-state"
+      style="display:none"
+    >
+      <p>No coupons configured.</p>
     </div>
 
-    <section class="order-section">
-      <h2 style="margin-top:0">Existing Coupons</h2>
-      <div id="admin-coupons-loading" class="loading">
-        Loading coupons...
+    <table
+      id="admin-coupons-table"
+      class="text-small"
+      style="width:100%;border-collapse:collapse;margin-top:0.5rem"
+    >
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Description</th>
+          <th>Type</th>
+          <th>Amt</th>
+          <th>Min Cart</th>
+          <th>Max Disc</th>
+          <th>Days (0-6)</th>
+          <th>Time (HH-HH)</th>
+          <th>Status</th>
+          <th>Save</th>
+        </tr>
+      </thead>
+      <tbody id="admin-coupons-body"></tbody>
+    </table>
+  </section>
+
+  <section class="order-section" style="margin-top:1rem">
+    <h2 style="margin-top:0">Create New Coupon</h2>
+    <form
+      id="admin-add-coupon-form"
+      class="menu-filters"
+      style="align-items:flex-end;flex-wrap:wrap;gap:0.75rem"
+    >
+      <div class="form-field">
+        <label>Code</label>
+        <input type="text" name="code" placeholder="PPNEW50" required />
       </div>
-      <div
-        id="admin-coupons-empty"
-        class="empty-state"
-        style="display:none"
-      >
-        <p>No coupons configured.</p>
+      <div class="form-field">
+        <label>Description</label>
+        <input
+          type="text"
+          name="description"
+          placeholder="₹50 off above ₹499"
+        />
+      </div>
+      <div class="form-field">
+        <label>Type</label>
+        <select name="discountType">
+          <option value="FLAT">Flat (₹)</option>
+          <option value="PERCENT">Percent (%)</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label>Amount</label>
+        <input type="number" name="amount" min="0" required />
+      </div>
+      <div class="form-field">
+        <label>Min Cart ₹</label>
+        <input type="number" name="minCartAmount" min="0" />
+      </div>
+      <div class="form-field">
+        <label>Max Disc ₹</label>
+        <input type="number" name="maxDiscount" min="0" />
+      </div>
+      <div class="form-field">
+        <label>Days (0–6)</label>
+        <input
+          type="text"
+          name="daysOfWeek"
+          placeholder="e.g. 2,3 (Tue,Wed) empty=all"
+        />
+      </div>
+      <div class="form-field">
+        <label>Time (HH-HH)</label>
+        <input
+          type="text"
+          name="timeWindow"
+          placeholder="e.g. 14-16 for 2–4 PM"
+        />
       </div>
 
-      <table
-        id="admin-coupons-table"
-        class="text-small"
-        style="width:100%;border-collapse:collapse;margin-top:0.5rem"
-      >
-        <thead>
-          <tr>
-            <th>Code</th>
-            <th>Description</th>
-            <th>Type</th>
-            <th>Amt</th>
-            <th>Min Cart</th>
-            <th>Max Disc</th>
-            <th>Days (0-6)</th>
-            <th>Time (HH-HH)</th>
-            <th>Status</th>
-            <th>Save</th>
-          </tr>
-        </thead>
-        <tbody id="admin-coupons-body"></tbody>
-      </table>
-    </section>
+      <button type="submit" class="btn btn-primary">
+        Add Coupon
+      </button>
+    </form>
+  </section>
+</main>
 
-    <section class="order-section" style="margin-top:1rem">
-      <h2 style="margin-top:0">Create New Coupon</h2>
-      <form
-        id="admin-add-coupon-form"
-        class="menu-filters"
-        style="align-items:flex-end;flex-wrap:wrap;gap:0.75rem"
-      >
-        <div class="form-field">
-          <label>Code</label>
-          <input type="text" name="code" placeholder="PPNEW50" required />
-        </div>
-        <div class="form-field">
-          <label>Description</label>
-          <input
-            type="text"
-            name="description"
-            placeholder="₹50 off above ₹499"
-          />
-        </div>
-        <div class="form-field">
-          <label>Type</label>
-          <select name="discountType">
-            <option value="FLAT">Flat (₹)</option>
-            <option value="PERCENT">Percent (%)</option>
-          </select>
-        </div>
-        <div class="form-field">
-          <label>Amount</label>
-          <input type="number" name="amount" min="0" required />
-        </div>
-        <div class="form-field">
-          <label>Min Cart ₹</label>
-          <input type="number" name="minCartAmount" min="0" />
-        </div>
-        <div class="form-field">
-          <label>Max Disc ₹</label>
-          <input type="number" name="maxDiscount" min="0" />
-        </div>
-        <div class="form-field">
-          <label>Days (0–6)</label>
-          <input
-            type="text"
-            name="daysOfWeek"
-            placeholder="e.g. 2,3 (Tue,Wed) empty=all"
-          />
-        </div>
-        <div class="form-field">
-          <label>Time (HH-HH)</label>
-          <input
-            type="text"
-            name="timeWindow"
-            placeholder="e.g. 14-16 for 2–4 PM"
-          />
-        </div>
-
-        <button type="submit" class="btn btn-primary">
-          Add Coupon
-        </button>
-      </form>
-    </section>
-  </main>
-
-  <script src="../js/api.js"></script>
-  <script src="../js/auth.js"></script>
-  <script src="../js/admin.js"></script>
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/admin.js"></script>
 </body>
 </html>

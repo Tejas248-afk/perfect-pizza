@@ -9,10 +9,27 @@ const Product = require('../models/Product');
  */
 exports.getProducts = async (req, res) => {
   try {
-    // Sirf available products dikhao
-    const products = await Product.find({
+    // Sirf available products (isAvailable=true)
+    let products = await Product.find({
       isAvailable: true
     }).sort({ category: 1, name: 1 });
+
+    // Time-based filter (IST)
+    const now = new Date();
+    const istNow = new Date(
+      now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })
+    );
+    const hour = istNow.getHours(); // 0–23
+
+    products = products.filter(p => {
+      const from =
+        typeof p.availableFromHour === 'number' ? p.availableFromHour : 0;
+      const to =
+        typeof p.availableToHour === 'number' ? p.availableToHour : 24;
+
+      // inclusive start, exclusive end
+      return hour >= from && hour < to;
+    });
 
     return res.json({ products });
   } catch (err) {

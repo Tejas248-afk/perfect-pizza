@@ -13,73 +13,83 @@
       <span>🍕 Perfect <span class="dot">Pizza</span> Admin</span>
     </div>
     <nav class="nav-links">
-      <!-- ABSOLUTE paths: /admin/... -->
-      <a href="/admin/customers.html">Customers</a>
-      <a href="/admin/delivery-rules.html">Delivery Rules</a>
-      <a href="/admin/products.html">Menu Items</a>
-        <a href="/admin/coupons.html">Coupons</a>
+  <select id="admin-outlet-select" class="nav-outlet-select">
+    <option value="">All Outlets</option>
+  </select>
 
-      <a href="/login.html" data-login-link>Login</a>
-      <a href="#" data-logout-link style="display:none">Logout</a>
-      <span class="text-small" data-user-name></span>
-    </nav>
+  <a href="/admin/products.html">Menu Items</a>
+  <a href="/admin/outlets.html">Outlets</a>
+  <a href="/admin/customers.html">Customers</a>
+  <a href="/admin/delivery-rules.html">Delivery Rules</a>
+  <a href="/admin/coupons.html">Coupons</a>
+
+  <a href="/login.html" data-login-link>Login</a>
+  <a href="#" data-logout-link style="display:none">Logout</a>
+  <span class="text-small" data-user-name></span>
+</nav>
   </div>
 </header>
 
-  <main class="container">
-    <div class="page-heading">
-      <div>
-        <h1>All Orders</h1>
-        <p>Search and filter customer orders.</p>
-      </div>
-      <button class="btn btn-secondary" id="admin-order-reload">Reload</button>
+<main class="container">
+  <div class="page-heading">
+    <div>
+      <h1>All Orders</h1>
+      <p>Search and filter customer orders.</p>
+    </div>
+    <button class="btn btn-secondary" id="admin-order-reload">Reload</button>
+  </div>
+
+  <section class="order-section">
+    <div class="menu-filters" style="margin-bottom:0.75rem;align-items:center;gap:0.5rem;">
+      <select id="admin-order-status">
+        <option value="ALL">All Status</option>
+        <option value="PLACED">Placed</option>
+        <option value="BAKING">Baking</option>
+        <option value="OUT_FOR_DELIVERY">Out for Delivery</option>
+        <option value="DELIVERED">Delivered</option>
+        <option value="CANCELLED">Cancelled</option>
+      </select>
+      <input
+        type="search"
+        id="admin-order-search"
+        placeholder="Search by ID or reference (Enter to search)"
+      />
+      <label class="text-small" style="display:inline-flex;align-items:center;gap:0.3rem;">
+        <input type="checkbox" id="admin-order-today-only" />
+        Today only
+      </label>
     </div>
 
-    <section class="order-section">
-      <div class="menu-filters" style="margin-bottom:0.75rem">
-        <select id="admin-order-status">
-          <option value="ALL">All Status</option>
-          <option value="PLACED">Placed</option>
-          <option value="BAKING">Baking</option>
-          <option value="OUT_FOR_DELIVERY">Out for Delivery</option>
-          <option value="DELIVERED">Delivered</option>
-          <option value="CANCELLED">Cancelled</option>
-        </select>
-        <input
-          type="search"
-          id="admin-order-search"
-          placeholder="Search by ID or reference (Enter to search)"
-        />
-      </div>
+    <div id="admin-orders-loading" class="loading">Loading orders...</div>
+    <div id="admin-orders-empty" class="empty-state" style="display:none">
+      <p>No orders found.</p>
+    </div>
 
-      <div id="admin-orders-loading" class="loading">Loading orders...</div>
-      <div id="admin-orders-empty" class="empty-state" style="display:none">
-        <p>No orders found.</p>
-      </div>
+    <table
+      id="admin-orders-table"
+      class="text-small"
+      style="width:100%;border-collapse:collapse"
+    >
+      <thead>
+        <tr>
+          <th>Order ID</th>
+          <th>Customer</th>
+          <th>Time</th>
+          <th>Type</th>
+          <th>Total</th>
+          <th>Payment</th>
+          <th>Outlet</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="admin-orders-body"></tbody>
+    </table>
+  </section>
+</main>
 
-      <table
-        id="admin-orders-table"
-        class="text-small"
-        style="width:100%;border-collapse:collapse"
-      >
-        <thead>
-          <tr>
-            <th>Order ID</th>
-            <th>Customer</th>
-            <th>Time</th>
-            <th>Type</th>
-            <th>Total</th>
-            <th>Payment</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody id="admin-orders-body"></tbody>
-      </table>
-    </section>
-  </main>
-
-  <script src="../js/api.js"></script>
-  <script src="../js/auth.js"></script>
-  <script src="../js/admin.js"></script>
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/admin.js"></script>
 </body>
 </html>
