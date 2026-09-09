@@ -1,9 +1,12 @@
+// src/routes/adminRoutes.js
 const express = require('express');
 const authMiddleware = require('../middleware/authMiddleware');
 const authorizeRoles = require('../middleware/roleMiddleware');
 const adminController = require('../controllers/adminController');
 const productController = require('../controllers/productController');
-const couponAdminController = require('../controllers/couponAdminController'); 
+const couponAdminController = require('../controllers/couponAdminController');
+const outletAdminController = require('../controllers/outletAdminController');
+const upload = require('../middleware/uploadMiddleware');
 
 const router = express.Router();
 
@@ -15,6 +18,10 @@ router.use(authorizeRoles('ADMIN'));
 
 // ---------- Overview ----------
 router.get('/overview', adminController.getOverview);
+
+// ---------- Outlet config (timing + settings) ----------
+router.get('/outlet', outletAdminController.getOutletConfig);
+router.put('/outlet', outletAdminController.updateOutletConfig);
 
 // ---------- Orders ----------
 router.get('/orders', adminController.getOrders);
@@ -33,8 +40,21 @@ router.patch(
 
 // ---------- Products (Menu Items) ----------
 router.get('/products', productController.getAllProductsAdmin);
-router.post('/products', productController.createProduct);
-router.put('/products/:id', productController.updateProduct);
+
+// Create product WITH image file (multipart/form-data)
+router.post(
+  '/products',
+  upload.single('image'),
+  productController.createProduct
+);
+
+// Update product WITH optional new image file
+router.put(
+  '/products/:id',
+  upload.single('image'),
+  productController.updateProduct
+);
+
 router.patch(
   '/products/:id/availability',
   productController.updateAvailability

@@ -13,15 +13,14 @@
         <span>🍕 Perfect <span class="dot">Pizza</span></span>
       </a>
       <nav class="nav-links">
-  <a href="menu.html">Menu</a>
-  
-  <a href="cart.html" class="cart-link">
-    Cart <span class="cart-count" data-cart-count>0</span>
-  </a>
-  <a href="login.html" data-login-link>Login</a>
-  <a href="#" data-logout-link style="display:none">Logout</a>
-  <span class="text-small" data-user-name></span>
-</nav>
+        <a href="menu.html">Menu</a>
+        <a href="cart.html" class="cart-link">
+          Cart <span class="cart-count" data-cart-count>0</span>
+        </a>
+        <a href="login.html" data-login-link>Login</a>
+        <a href="#" data-logout-link style="display:none">Logout</a>
+        <span class="text-small" data-user-name></span>
+      </nav>
     </div>
   </header>
 
@@ -29,7 +28,7 @@
     <div class="page-heading">
       <div>
         <h1>Checkout</h1>
-        <p>Delivery ya pickup choose karein aur order complete karein.</p>
+        <p>Choose delivery or pickup and complete your order.</p>
       </div>
     </div>
 
@@ -74,7 +73,7 @@
             <input
               type="text"
               id="address"
-              placeholder="House no, street, area"
+              placeholder="House number, street, area"
             />
           </div>
           <div class="form-field">
@@ -82,7 +81,7 @@
             <input
               type="text"
               id="landmark"
-              placeholder="Near..."
+              placeholder="Nearby landmark"
             />
           </div>
           <div class="form-field">
@@ -91,7 +90,7 @@
               <input type="text" id="latitude" placeholder="Latitude" />
               <input type="text" id="longitude" placeholder="Longitude" />
             </div>
-            <!-- Yahi hai auto‑fetch button -->
+            <!-- Auto‑fetch location button -->
             <button
               type="button"
               id="use-location-btn"
@@ -101,12 +100,12 @@
               Use current location
             </button>
             <small class="text-small" style="color:#777">
-              Note: Sirf 5 KM radius ke andar delivery available hai.
+              Note: Delivery is available only within a 5 KM radius.
             </small>
           </div>
         </div>
 
-                <!-- Coupon code -->
+        <!-- Coupon code -->
         <div class="summary-section" id="coupon-section">
           <h3 style="margin:0 0 0.3rem;font-size:0.95rem;">
             Coupon Code
@@ -145,7 +144,7 @@
           </p>
 
           <div class="form-field">
-            <label for="coins-to-use">Coins to use this order</label>
+            <label for="coins-to-use">Coins to use on this order</label>
             <input
               type="number"
               id="coins-to-use"
@@ -157,44 +156,44 @@
         </div>
 
         <!-- Amount summary -->
-       <div class="summary-row">
-  <span>Items subtotal</span>
-  <strong id="summary-subtotal">₹0</strong>
-</div>
-<div class="summary-row">
-  <span>Delivery fee</span>
-  <strong id="summary-delivery">—</strong>
-</div>
-<div class="summary-row">
-  <span>Offer discount</span>
-  <strong id="summary-offer">₹0</strong>
-</div>
-<div class="summary-row">
-  <span>Reward discount</span>
-  <strong id="summary-discount">₹0</strong>
-</div>
-<div class="summary-row">
-  <span>GST (5%)</span>
-  <strong id="summary-gst">₹0</strong>
-</div>
-<div class="summary-row summary-total">
-  <span>Grand total</span>
-  <strong id="summary-total">₹0</strong>
-</div>
+        <div class="summary-row">
+          <span>Items subtotal</span>
+          <strong id="summary-subtotal">₹0</strong>
+        </div>
+        <div class="summary-row">
+          <span>Delivery fee</span>
+          <strong id="summary-delivery">—</strong>
+        </div>
+        <div class="summary-row">
+          <span>Offer discount</span>
+          <strong id="summary-offer">₹0</strong>
+        </div>
+        <div class="summary-row">
+          <span>Reward discount</span>
+          <strong id="summary-discount">₹0</strong>
+        </div>
+        <div class="summary-row">
+          <span>GST (5%)</span>
+          <strong id="summary-gst">₹0</strong>
+        </div>
+        <div class="summary-row summary-total">
+          <span>Grand total</span>
+          <strong id="summary-total">₹0</strong>
+        </div>
 
         <div class="payment-method-section">
-  <h3>Payment Method</h3>
-  <label>
-    <input type="radio" name="paymentMethod" value="COD" checked>
-    Cash on Delivery (COD)
-  </label>
-  <label>
-    <input type="radio" name="paymentMethod" value="PAYU">
-    Online Payment (PayU)
-  </label>
-</div>
+          <h3>Payment Method</h3>
+          <label>
+            <input type="radio" name="paymentMethod" value="COD" checked>
+            Cash on Delivery (COD)
+          </label>
+          <label>
+            <input type="radio" name="paymentMethod" value="PAYU">
+            Online Payment (PayU)
+          </label>
+        </div>
 
-<button id="place-order-btn">Place Order</button>
+        <button id="place-order-btn">Place Order</button>
       </aside>
     </div>
   </main>

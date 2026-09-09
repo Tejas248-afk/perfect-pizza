@@ -17,7 +17,7 @@
       <a href="/admin/products.html">Menu Items</a>
       <a href="/admin/customers.html">Customers</a>
       <a href="/admin/delivery-rules.html">Delivery Rules</a>
-        <a href="/admin/coupons.html">Coupons</a>
+      <a href="/admin/coupons.html">Coupons</a>
 
       <a href="/login.html" data-login-link>Login</a>
       <a href="#" data-logout-link style="display:none">Logout</a>
@@ -26,66 +26,123 @@
   </div>
 </header>
 
-  <main class="container" id="admin-overview">
-    <div class="page-heading">
-      <div>
-        <h1>Admin Dashboard</h1>
-        <p>Today&apos;s snapshot for Perfect Pizza – Singhpur Chauraha.</p>
-      </div>
+<main class="container" id="admin-overview">
+  <div class="page-heading">
+    <div>
+      <h1>Admin Dashboard</h1>
+      <p>Today&apos;s snapshot for Perfect Pizza – Singhpur Chauraha.</p>
     </div>
+  </div>
 
-    <section class="order-section">
-      <div class="orders-list" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0.9rem;">
-        <article class="order-card">
-          <div class="order-card-main">
-            <div>
-              <div class="order-id">Today&apos;s Orders</div>
-              <div class="order-amount" id="admin-today-orders">0</div>
-            </div>
+  <section class="order-section">
+    <div class="orders-list" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0.9rem;">
+      <article class="order-card">
+        <div class="order-card-main">
+          <div>
+            <div class="order-id">Today&apos;s Orders</div>
+            <div class="order-amount" id="admin-today-orders">0</div>
           </div>
-        </article>
+        </div>
+      </article>
 
-        <article class="order-card">
-          <div class="order-card-main">
-            <div>
-              <div class="order-id">Today&apos;s Sales</div>
-              <div class="order-amount" id="admin-today-sales">₹0</div>
-            </div>
+      <article class="order-card">
+        <div class="order-card-main">
+          <div>
+            <div class="order-id">Today&apos;s Sales</div>
+            <div class="order-amount" id="admin-today-sales">₹0</div>
           </div>
-        </article>
+        </div>
+      </article>
 
-        <article class="order-card">
-          <div class="order-card-main">
-            <div>
-              <div class="order-id">Pending Orders</div>
-              <div class="order-amount" id="admin-today-pending">0</div>
-            </div>
+      <article class="order-card">
+        <div class="order-card-main">
+          <div>
+            <div class="order-id">Pending Orders</div>
+            <div class="order-amount" id="admin-today-pending">0</div>
           </div>
-        </article>
+        </div>
+      </article>
 
-        <article class="order-card">
-          <div class="order-card-main">
-            <div>
-              <div class="order-id">Delivered Today</div>
-              <div class="order-amount" id="admin-today-delivered">0</div>
-            </div>
+      <article class="order-card">
+        <div class="order-card-main">
+          <div>
+            <div class="order-id">Delivered Today</div>
+            <div class="order-amount" id="admin-today-delivered">0</div>
           </div>
-        </article>
+        </div>
+      </article>
 
-        <article class="order-card">
-          <div class="order-card-main">
-            <div>
-              <div class="order-id">Total Customers</div>
-              <div class="order-amount" id="admin-total-customers">0</div>
-            </div>
+      <article class="order-card">
+        <div class="order-card-main">
+          <div>
+            <div class="order-id">Total Customers</div>
+            <div class="order-amount" id="admin-total-customers">0</div>
           </div>
-        </article>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <!-- NEW: Outlet settings section -->
+  <section class="order-section" style="margin-top:2rem;">
+    <h2>Outlet Settings</h2>
+    <form id="admin-outlet-form" class="card" style="padding:1rem;max-width:420px;">
+      <div class="form-row">
+        <label for="outlet-open-hour">Open hour (0–23)</label>
+        <input
+          type="number"
+          id="outlet-open-hour"
+          name="openHour"
+          min="0"
+          max="23"
+          required
+        />
       </div>
-    </section>
-  </main>
 
-  <script src="../js/api.js"></script>
-  <script src="../js/auth.js"></script>
-  <script src="../js/admin.js"></script>
+      <div class="form-row">
+        <label for="outlet-close-hour">Close hour (0–23)</label>
+        <input
+          type="number"
+          id="outlet-close-hour"
+          name="closeHour"
+          min="0"
+          max="23"
+          required
+        />
+      </div>
+
+      <div class="form-row" style="margin-top:0.75rem;">
+        <label>
+          <input
+            type="checkbox"
+            id="outlet-online-orders"
+            name="enableOnlineOrders"
+          />
+          Online orders ON
+        </label>
+      </div>
+
+      <div class="form-row" style="margin-top:0.5rem;">
+        <label>
+          <input
+            type="checkbox"
+            id="outlet-bogo"
+            name="enableBogoTuesday"
+          />
+          Tuesday BOGO ON
+        </label>
+      </div>
+
+      <div class="form-row" style="margin-top:1rem;display:flex;align-items:center;gap:0.75rem;">
+        <button type="submit" class="btn btn-primary">Save Outlet Settings</button>
+        <span id="admin-outlet-status" class="text-small" style="color:#666;"></span>
+      </div>
+    </form>
+  </section>
+</main>
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/admin.js"></script>
 </body>
 </html>

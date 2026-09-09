@@ -68,12 +68,43 @@ exports.getAllProductsAdmin = async (req, res) => {
 /**
  * POST /api/admin/products
  * Admin: naya product create karo
+ * Supports: multipart/form-data (FormData) with:
+ *   - field "data": JSON string of product body
+ *   - field "image": image file (optional)
+ * or pure JSON (old behaviour, without file)
  */
 exports.createProduct = async (req, res) => {
   try {
-    const body = req.body || {};
+    let body = {};
 
-    // Basic validation (optional)
+    // Agar FormData me "data" field aayi hai to usko JSON parse karo
+    if (req.body && req.body.data) {
+      try {
+        body = JSON.parse(req.body.data);
+      } catch (parseErr) {
+        return res.status(400).json({
+          message: 'Invalid product data JSON.',
+          error: parseErr.message
+        });
+      }
+    } else {
+      body = req.body || {};
+    }
+
+    // File aayi hai to image path set karo
+    if (req.file) {
+      body.image = `/uploads/${req.file.filename}`;
+    }
+
+    // Multipart se boolean string aa sakte hain
+    if (typeof body.isVeg === 'string') {
+      body.isVeg = body.isVeg === 'true';
+    }
+    if (typeof body.isAvailable === 'string') {
+      body.isAvailable = body.isAvailable === 'true';
+    }
+
+    // Basic validation
     if (!body.name || !body.category) {
       return res
         .status(400)
@@ -94,11 +125,40 @@ exports.createProduct = async (req, res) => {
 /**
  * PUT /api/admin/products/:id
  * Admin: existing product update karo
+ * Supports:
+ *   - multipart/form-data with optional:
+ *       data: JSON string (partial/full update)
+ *       image: new image file
+ *   - or simple JSON body (old behaviour)
  */
 exports.updateProduct = async (req, res) => {
   try {
     const { id } = req.params;
-    const body = req.body || {};
+    let body = {};
+
+    if (req.body && req.body.data) {
+      try {
+        body = JSON.parse(req.body.data);
+      } catch (parseErr) {
+        return res.status(400).json({
+          message: 'Invalid product data JSON.',
+          error: parseErr.message
+        });
+      }
+    } else {
+      body = req.body || {};
+    }
+
+    if (req.file) {
+      body.image = `/uploads/${req.file.filename}`;
+    }
+
+    if (typeof body.isVeg === 'string') {
+      body.isVeg = body.isVeg === 'true';
+    }
+    if (typeof body.isAvailable === 'string') {
+      body.isAvailable = body.isAvailable === 'true';
+    }
 
     const product = await Product.findByIdAndUpdate(id, body, {
       new: true

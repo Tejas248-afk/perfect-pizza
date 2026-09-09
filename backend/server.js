@@ -5,6 +5,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
+const path = require('path'); // <-- ADDED
 
 const connectDB = require('./src/config/db');
 
@@ -50,6 +51,9 @@ app.use(
     credentials: true
   })
 );
+
+// Static uploads (product images)
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Logging
 app.use(morgan('dev'));

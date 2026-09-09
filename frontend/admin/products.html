@@ -2,174 +2,301 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Admin Menu Items - Perfect Pizza</title>
+  <title>Admin - Menu Items</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="../css/style.css" />
 </head>
 <body>
-  <!-- Common Admin Navbar -->
-  <header class="navbar">
-    <div class="navbar-inner">
-      <div class="nav-logo">
-        <span>🍕 Perfect <span class="dot">Pizza</span> Admin</span>
-      </div>
-      <nav class="nav-links">
-  <a href="/admin/products.html">Menu Items</a>
-  <a href="/admin/customers.html">Customers</a>
-  <a href="/admin/delivery-rules.html">Delivery Rules</a>
-  <a href="/admin/coupons.html">Coupons</a>
-
-  <a href="/login.html" data-login-link>Login</a>
-  <a href="#" data-logout-link style="display:none">Logout</a>
-  <span class="text-small" data-user-name></span>
-</nav>
+<header class="navbar">
+  <div class="navbar-inner">
+    <div class="nav-logo">
+      <span>🍕 Perfect <span class="dot">Pizza</span> Admin</span>
     </div>
-  </header>
+    <nav class="nav-links">
+      <a href="/admin/products.html">Menu Items</a>
+      <a href="/admin/customers.html">Customers</a>
+      <a href="/admin/delivery-rules.html">Delivery Rules</a>
+      <a href="/admin/coupons.html">Coupons</a>
 
-  <main class="container">
-    <div class="page-heading">
-      <div>
-        <h1>Menu Items</h1>
-        <p>
-          Perfect Pizza ka pura menu – pizzas, combos, sides. Availability
-          toggle karein ya simple naya item add karein.
-        </p>
-      </div>
-      <button class="btn btn-secondary" id="admin-products-reload">Reload</button>
+      <a href="/login.html" data-login-link>Login</a>
+      <a href="#" data-logout-link style="display:none">Logout</a>
+      <span class="text-small" data-user-name></span>
+    </nav>
+  </div>
+</header>
+
+<main class="container">
+  <div class="page-heading">
+    <div>
+      <h1>Menu Items</h1>
+      <p>Manage pizzas and other products.</p>
     </div>
+    <div>
+      <button id="admin-products-reload" class="btn btn-secondary">
+        Reload
+      </button>
+    </div>
+  </div>
 
-    <!-- Existing products -->
-    <section class="order-section">
-      <h2 style="margin-top:0">Existing Products</h2>
-
-      <div class="menu-filters" style="margin-bottom:0.5rem">
+  <!-- Filters -->
+  <section class="card" style="margin-bottom:1.5rem;padding:1rem;">
+    <div style="display:flex;flex-wrap:wrap;gap:0.75rem;align-items:flex-end;">
+      <div style="flex:1 1 180px;">
+        <label for="admin-product-search" class="text-small">Search</label>
         <input
-          type="search"
+          type="text"
           id="admin-product-search"
-          placeholder="Search by name or category (Enter)"
+          class="input"
+          placeholder="Search by name or category"
         />
-        <select id="admin-product-filter-category">
+      </div>
+      <div style="flex:0 0 160px;">
+        <label for="admin-product-filter-category" class="text-small">Category</label>
+        <select id="admin-product-filter-category" class="input">
           <option value="">All Categories</option>
         </select>
-        <select id="admin-product-filter-availability">
+      </div>
+      <div style="flex:0 0 160px;">
+        <label for="admin-product-filter-availability" class="text-small">Availability</label>
+        <select id="admin-product-filter-availability" class="input">
           <option value="ALL">All</option>
-          <option value="AVAILABLE">Available only</option>
-          <option value="DISABLED">Disabled only</option>
+          <option value="AVAILABLE">Available</option>
+          <option value="DISABLED">Disabled</option>
         </select>
       </div>
+    </div>
+  </section>
 
-      <div id="admin-products-loading" class="loading">
-        Loading products...
-      </div>
-      <div
-        id="admin-products-empty"
-        class="empty-state"
-        style="display:none"
-      >
-        <p>No products found.</p>
-      </div>
-
-     <table
-  id="admin-products-table"
-  class="text-small"
-  style="width:100%;border-collapse:collapse;margin-top:0.5rem"
->
-  <thead>
-    <tr>
-      <th>Name</th>
-      <th>Category</th>
-      <th>Image</th>
-      <th>Veg</th>
-      <th>Prices (R/M/L)</th>
-      <th>Available</th>
-      <th>Actions</th>
-    </tr>
-  </thead>
-  <tbody id="admin-products-body"></tbody>
-</table>
-    </section>
-
-       <!-- Add new product -->
-    <section class="order-section" style="margin-top:1.25rem">
-      <h2 style="margin-top:0">Add New Item (Simple)</h2>
-      <p class="text-small" style="color:#555;margin-bottom:0.75rem">
-        Ye form basic pizza / combo / side ke liye hai. Ye default "Classic"
-        crust create karega, add-ons ke bina. Advanced customization ke liye
-        abhi seed script use kar rahe hain.
-      </p>
-      <form
-        id="admin-add-product-form"
-        class="menu-filters"
-        style="align-items:flex-end;flex-wrap:wrap;gap:0.75rem"
-      >
-        <div class="form-field">
-          <label>Name</label>
-          <input type="text" name="name" required />
+  <!-- Add product -->
+  <section class="card" style="margin-bottom:1.5rem;padding:1rem;">
+    <h2 style="margin-bottom:0.75rem;">Add Product</h2>
+    <form id="admin-add-product-form">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0.75rem;">
+        <div>
+          <label class="text-small" for="admin-add-name">Name</label>
+          <input
+            id="admin-add-name"
+            type="text"
+            name="name"
+            class="input"
+            required
+          />
         </div>
 
-        <!-- CATEGORY: select + optional custom -->
-        <div class="form-field">
-          <label>Category</label>
-          <select
-            name="category"
-            id="admin-add-category-select"
-            required
-          >
+        <div>
+          <label class="text-small" for="admin-add-category-select">Category</label>
+          <select id="admin-add-category-select" class="input">
             <option value="">Select category</option>
-            <!-- JS se options fill honge -->
+            <option value="__custom">Other (custom)</option>
           </select>
           <input
             type="text"
             id="admin-add-category-custom"
-            placeholder="Custom category"
-            style="display:none;margin-top:0.3rem"
+            class="input"
+            placeholder="Enter custom category"
+            style="margin-top:0.5rem;display:none;"
           />
         </div>
 
-        <div class="form-field">
-          <label>Description</label>
-          <input type="text" name="description" />
-        </div>
-
-        <div class="form-field">
-          <label>Veg?</label>
-          <select name="isVeg">
+        <div>
+          <label class="text-small" for="admin-add-isVeg">Type</label>
+          <select id="admin-add-isVeg" name="isVeg" class="input">
             <option value="true">Veg</option>
             <option value="false">Non-Veg</option>
           </select>
         </div>
 
-        <!-- SIZE FIELDS: JS inhe show/hide karega -->
-        <div class="form-field" id="admin-add-size-regular">
-          <label>Regular ₹</label>
-          <input type="number" name="priceRegular" min="0" />
+        <div>
+          <label class="text-small" for="admin-add-image">Image</label>
+          <input
+            id="admin-add-image"
+            type="file"
+            name="image"
+            accept="image/*"
+            class="input"
+          />
         </div>
-        <div class="form-field" id="admin-add-size-medium">
-          <label>Medium ₹</label>
-          <input type="number" name="priceMedium" min="0" />
-        </div>
-        <div class="form-field" id="admin-add-size-large">
-          <label>Large ₹</label>
-          <input type="number" name="priceLarge" min="0" />
-        </div>
-        <div class="form-field">
-  <label>Image URL</label>
-  <input
-    type="text"
-    name="imageUrl"
-    placeholder="https://example.com/pizza.jpg"
-  />
-</div>
+      </div>
 
-        <button type="submit" class="btn btn-primary">
-          Add Product
-        </button>
+      <div style="margin-top:0.75rem;">
+        <label class="text-small" for="admin-add-description">Description</label>
+        <textarea
+          id="admin-add-description"
+          name="description"
+          class="input"
+          rows="2"
+        ></textarea>
+      </div>
+
+      <div
+        style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:0.75rem;margin-top:0.75rem;">
+        <div id="admin-add-size-regular">
+          <label class="text-small" for="admin-add-price-regular">Regular Price</label>
+          <input
+            id="admin-add-price-regular"
+            type="number"
+            name="priceRegular"
+            class="input"
+            min="0"
+            step="1"
+          />
+        </div>
+        <div id="admin-add-size-medium">
+          <label class="text-small" for="admin-add-price-medium">Medium Price</label>
+          <input
+            id="admin-add-price-medium"
+            type="number"
+            name="priceMedium"
+            class="input"
+            min="0"
+            step="1"
+          />
+        </div>
+        <div id="admin-add-size-large">
+          <label class="text-small" for="admin-add-price-large">Large Price</label>
+          <input
+            id="admin-add-price-large"
+            type="number"
+            name="priceLarge"
+            class="input"
+            min="0"
+            step="1"
+          />
+        </div>
+      </div>
+
+      <div style="margin-top:1rem;">
+        <button type="submit" class="btn btn-primary">Add Product</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- Products table -->
+  <section class="card" style="padding:1rem;">
+    <h2 style="margin-bottom:0.5rem;">Existing Products</h2>
+    <div id="admin-products-loading" class="text-small">Loading...</div>
+    <div id="admin-products-empty" class="text-small" style="display:none;">
+      No products found.
+    </div>
+    <div style="overflow-x:auto;">
+      <table id="admin-products-table" class="table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Category</th>
+            <th>Image</th>
+            <th>Type</th>
+            <th>Prices</th>
+            <th>Available</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="admin-products-body"></tbody>
+      </table>
+    </div>
+    <!-- Hidden file input for "Change Image" buttons -->
+    <input
+      type="file"
+      id="admin-change-image-input"
+      accept="image/*"
+      style="display:none;"
+    />
+  </section>
+
+  <!-- Edit product modal -->
+  <div
+    id="admin-edit-product-modal"
+    style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;"
+  >
+    <div
+      class="card"
+      style="max-width:640px;width:100%;max-height:90vh;overflow:auto;padding:1rem;background:#fff;position:relative;"
+    >
+      <h2 style="margin-bottom:0.75rem;">Edit Product</h2>
+      <form id="admin-edit-product-form">
+        <input type="hidden" id="edit-product-id" />
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0.75rem;">
+          <div>
+            <label class="text-small" for="edit-name">Name</label>
+            <input id="edit-name" type="text" class="input" required />
+          </div>
+          <div>
+            <label class="text-small" for="edit-category">Category</label>
+            <input id="edit-category" type="text" class="input" required />
+          </div>
+          <div>
+            <label class="text-small" for="edit-isVeg">Type</label>
+            <select id="edit-isVeg" class="input">
+              <option value="true">Veg</option>
+              <option value="false">Non-Veg</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="margin-top:0.75rem;">
+          <label class="text-small" for="edit-description">Description</label>
+          <textarea id="edit-description" class="input" rows="2"></textarea>
+        </div>
+
+        <div
+          style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:0.75rem;margin-top:0.75rem;"
+        >
+          <div>
+            <label class="text-small" for="edit-price-regular">Regular Price</label>
+            <input id="edit-price-regular" type="number" class="input" min="0" step="1" />
+          </div>
+          <div>
+            <label class="text-small" for="edit-price-medium">Medium Price</label>
+            <input id="edit-price-medium" type="number" class="input" min="0" step="1" />
+          </div>
+          <div>
+            <label class="text-small" for="edit-price-large">Large Price</label>
+            <input id="edit-price-large" type="number" class="input" min="0" step="1" />
+          </div>
+        </div>
+
+        <div style="margin-top:0.75rem;">
+          <label>
+            <input type="checkbox" id="edit-isAvailable" />
+            Available
+          </label>
+        </div>
+
+        <hr style="margin:1rem 0;" />
+
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+            <h3 style="font-size:1rem;">Add-ons</h3>
+            <button
+              type="button"
+              class="btn btn-secondary btn-sm"
+              id="edit-addons-add-btn"
+            >
+              Add Add-on
+            </button>
+          </div>
+          <div id="edit-addons-container"></div>
+          <p class="text-small" style="color:#666;margin-top:0.25rem;">
+            Example: Extra cheese, extra toppings etc. Leave a price empty if not applicable for that size.
+          </p>
+        </div>
+
+        <div style="margin-top:1rem;display:flex;justify-content:flex-end;gap:0.5rem;">
+          <button type="button" class="btn btn-secondary" id="edit-product-cancel">
+            Cancel
+          </button>
+          <button type="submit" class="btn btn-primary">
+            Save Changes
+          </button>
+        </div>
       </form>
-    </section>
-  </main>
+    </div>
+  </div>
+</main>
 
-  <script src="../js/api.js"></script>
-  <script src="../js/auth.js"></script>
-  <script src="../js/admin.js"></script>
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/admin.js"></script>
 </body>
 </html>

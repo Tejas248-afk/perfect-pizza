@@ -5,19 +5,19 @@ document.addEventListener('DOMContentLoaded', () => {
     setupAuthNav();
   }
 
-  if (document.getElementById('admin-coupons-table')) {
-    initAdminCouponsPage();
-  }
-
   // Only ADMIN user can access admin code
   if (!ensureAdmin()) return;
 
-  if (document.getElementById('admin-products-table')) {
-    initAdminProductsPage();
-  }
-
   if (document.getElementById('admin-overview')) {
     loadAdminOverview();
+  }
+
+  if (document.getElementById('admin-outlet-form')) {
+    initAdminOutletForm();
+  }
+
+  if (document.getElementById('admin-products-table')) {
+    initAdminProductsPage();
   }
 
   if (document.getElementById('admin-orders-table')) {
@@ -30,6 +30,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (document.getElementById('admin-delivery-rules-table')) {
     initAdminDeliveryRulesPage();
+  }
+
+  if (document.getElementById('admin-coupons-table')) {
+    initAdminCouponsPage();
   }
 });
 
@@ -53,6 +57,10 @@ function ensureAdmin() {
 
   return true;
 }
+
+// Global for change-image flow + product cache
+let currentImageProductId = null;
+let adminProductsById = {};
 
 // ====================== PRODUCTS (admin/products.html) ======================
 
@@ -134,6 +142,16 @@ async function initAdminProductsPage() {
     addForm.addEventListener('submit', handleAddProduct);
   }
 
+  // Hidden input for "Change Image" buttons
+  const changeImageInput = document.getElementById('admin-change-image-input');
+  if (changeImageInput && !changeImageInput.dataset.bound) {
+    changeImageInput.dataset.bound = 'true';
+    changeImageInput.addEventListener('change', handleChangeProductImageFile);
+  }
+
+  // Setup edit modal
+  setupEditProductModal();
+
   loadAdminProducts();
 }
 
@@ -180,10 +198,16 @@ async function loadAdminProducts() {
   loadingEl.style.display = 'block';
   emptyEl.style.display = 'none';
   tbody.innerHTML = '';
+  adminProductsById = {};
 
   try {
     const res = await Api.get('/admin/products');
     let products = res.products || [];
+
+    // Cache by ID
+    products.forEach(p => {
+      adminProductsById[p._id] = p;
+    });
 
     const cats = Array.from(
       new Set(products.map(p => p.category).filter(Boolean))
@@ -262,6 +286,9 @@ async function loadAdminProducts() {
         </td>
         <td>${p.isAvailable ? 'Yes' : 'No'}</td>
         <td>
+          <button class="btn btn-primary btn-sm" data-edit-product="${p._id}">
+            Edit
+          </button>
           <button class="btn btn-secondary btn-sm" data-toggle-product="${
             p._id
           }">
@@ -296,6 +323,22 @@ async function loadAdminProducts() {
       btn.addEventListener('click', () => {
         const id = btn.dataset.deleteProduct;
         handleDeleteProduct(id);
+      });
+    });
+
+    // Change Image buttons
+    tbody.querySelectorAll('[data-image-product]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.imageProduct;
+        openImageFilePickerForProduct(id);
+      });
+    });
+
+    // Edit buttons
+    tbody.querySelectorAll('[data-edit-product]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.editProduct;
+        openEditProductModal(id);
       });
     });
   } catch (err) {
@@ -339,7 +382,6 @@ async function handleAddProduct(e) {
   const form = e.target;
   const name = form.name.value.trim();
   const description = form.description.value.trim();
-  const imageUrl = form.imageUrl ? form.imageUrl.value.trim() : '';
   const isVeg = form.isVeg.value === 'true';
 
   const addCatSelect = document.getElementById('admin-add-category-select');
@@ -378,7 +420,6 @@ async function handleAddProduct(e) {
     name,
     category,
     description,
-    image: imageUrl || '',
     isVeg,
     isAvailable: true,
     sizes,
@@ -392,8 +433,16 @@ async function handleAddProduct(e) {
     addOns: []
   };
 
+  const formData = new FormData();
+  formData.append('data', JSON.stringify(productBody));
+
+  const imageInput = form.image;
+  if (imageInput && imageInput.files && imageInput.files[0]) {
+    formData.append('image', imageInput.files[0]);
+  }
+
   try {
-    await Api.post('/admin/products', productBody);
+    await Api.post('/admin/products', formData);
     form.reset();
 
     if (addCatSelect) addCatSelect.value = '';
@@ -412,6 +461,316 @@ async function handleAddProduct(e) {
   } catch (err) {
     console.error('Add product error', err);
     alert(err.message || 'Unable to add the new product.');
+  }
+}
+
+// Image change helpers
+function openImageFilePickerForProduct(id) {
+  const input = document.getElementById('admin-change-image-input');
+  if (!input) {
+    alert('Image file input not found.');
+    return;
+  }
+  currentImageProductId = id;
+  input.value = ''; // reset
+  input.click();
+}
+
+async function handleChangeProductImageFile(e) {
+  const file = e.target.files[0];
+  if (!file || !currentImageProductId) return;
+
+  const formData = new FormData();
+  formData.append('image', file);
+
+  try {
+    await Api.put(`/admin/products/${currentImageProductId}`, formData);
+    currentImageProductId = null;
+    e.target.value = '';
+    loadAdminProducts();
+  } catch (err) {
+    console.error('Change image error', err);
+    alert(err.message || 'Unable to update the image.');
+  }
+}
+
+// ========== EDIT PRODUCT MODAL + ADD-ONS ==========
+
+function setupEditProductModal() {
+  const modal = document.getElementById('admin-edit-product-modal');
+  if (!modal || modal.dataset.bound) return;
+  modal.dataset.bound = 'true';
+
+  const form = document.getElementById('admin-edit-product-form');
+  const cancelBtn = document.getElementById('edit-product-cancel');
+  const addAddonBtn = document.getElementById('edit-addons-add-btn');
+
+  if (form) {
+    form.addEventListener('submit', handleSaveEditProduct);
+  }
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', closeEditProductModal);
+  }
+
+  modal.addEventListener('click', e => {
+    if (e.target === modal) {
+      closeEditProductModal();
+    }
+  });
+
+  if (addAddonBtn) {
+    addAddonBtn.addEventListener('click', () => addEmptyAddonRow());
+  }
+}
+
+function openEditProductModal(productId) {
+  const product = adminProductsById[productId];
+  if (!product) {
+    alert('Product not found in cache.');
+    return;
+  }
+
+  const idEl = document.getElementById('edit-product-id');
+  const nameEl = document.getElementById('edit-name');
+  const catEl = document.getElementById('edit-category');
+  const descEl = document.getElementById('edit-description');
+  const isVegEl = document.getElementById('edit-isVeg');
+  const isAvailEl = document.getElementById('edit-isAvailable');
+  const priceRegEl = document.getElementById('edit-price-regular');
+  const priceMedEl = document.getElementById('edit-price-medium');
+  const priceLgEl = document.getElementById('edit-price-large');
+
+  if (!idEl) return;
+
+  idEl.value = product._id || '';
+  if (nameEl) nameEl.value = product.name || '';
+  if (catEl) catEl.value = product.category || '';
+  if (descEl) descEl.value = product.description || '';
+  if (isVegEl) isVegEl.value = product.isVeg ? 'true' : 'false';
+  if (isAvailEl) isAvailEl.checked = !!product.isAvailable;
+
+  const sizes = product.sizes || [];
+  const findPrice = sizeName => {
+    const s = sizes.find(s => s.name === sizeName);
+    return s ? s.price : '';
+  };
+
+  if (priceRegEl) priceRegEl.value = findPrice('REGULAR') || '';
+  if (priceMedEl) priceMedEl.value = findPrice('MEDIUM') || '';
+  if (priceLgEl) priceLgEl.value = findPrice('LARGE') || '';
+
+  renderEditAddOns(product.addOns || []);
+
+  const modal = document.getElementById('admin-edit-product-modal');
+  if (modal) {
+    modal.style.display = 'flex';
+  }
+}
+
+function closeEditProductModal() {
+  const modal = document.getElementById('admin-edit-product-modal');
+  if (modal) {
+    modal.style.display = 'none';
+  }
+}
+
+function getAddonPrice(addon, sizeName) {
+  if (!addon || !Array.isArray(addon.prices)) return '';
+  const p = addon.prices.find(x => x.size === sizeName);
+  return p ? p.price : '';
+}
+
+function createAddonRow(addon) {
+  const container = document.getElementById('edit-addons-container');
+  if (!container) return;
+
+  const row = document.createElement('div');
+  row.className = 'edit-addon-row';
+  row.style.display = 'grid';
+  row.style.gridTemplateColumns = '2fr repeat(3, 1fr) auto';
+  row.style.gap = '0.5rem';
+  row.style.alignItems = 'center';
+  row.style.marginBottom = '0.5rem';
+
+  const name = addon?.name || '';
+  const regPrice = getAddonPrice(addon, 'REGULAR') || '';
+  const medPrice = getAddonPrice(addon, 'MEDIUM') || '';
+  const lgPrice = getAddonPrice(addon, 'LARGE') || '';
+  const isRequired = !!(addon && addon.isRequired);
+
+  row.innerHTML = `
+    <input
+      type="text"
+      class="input"
+      placeholder="Name"
+      data-addon-field="name"
+      value="${name}"
+    />
+    <input
+      type="number"
+      class="input"
+      min="0"
+      step="1"
+      placeholder="R"
+      data-addon-field="priceRegular"
+      value="${regPrice}"
+    />
+    <input
+      type="number"
+      class="input"
+      min="0"
+      step="1"
+      placeholder="M"
+      data-addon-field="priceMedium"
+      value="${medPrice}"
+    />
+    <input
+      type="number"
+      class="input"
+      min="0"
+      step="1"
+      placeholder="L"
+      data-addon-field="priceLarge"
+      value="${lgPrice}"
+    />
+    <div style="display:flex;align-items:center;gap:0.25rem;">
+      <label class="text-small">
+        <input type="checkbox" data-addon-field="isRequired" ${
+          isRequired ? 'checked' : ''
+        } />
+        Req
+      </label>
+      <button
+        type="button"
+        class="btn btn-danger-outline btn-sm"
+        data-addon-remove
+      >
+        &times;
+      </button>
+    </div>
+  `;
+
+  const removeBtn = row.querySelector('[data-addon-remove]');
+  removeBtn.addEventListener('click', () => row.remove());
+
+  container.appendChild(row);
+}
+
+function renderEditAddOns(addOns) {
+  const container = document.getElementById('edit-addons-container');
+  if (!container) return;
+  container.innerHTML = '';
+  (addOns || []).forEach(a => createAddonRow(a));
+}
+
+function addEmptyAddonRow() {
+  createAddonRow({});
+}
+
+function collectEditAddOnsFromDOM() {
+  const container = document.getElementById('edit-addons-container');
+  if (!container) return [];
+  const rows = container.querySelectorAll('.edit-addon-row');
+  const addOns = [];
+
+  rows.forEach(row => {
+    const nameEl = row.querySelector('[data-addon-field="name"]');
+    const regEl = row.querySelector('[data-addon-field="priceRegular"]');
+    const medEl = row.querySelector('[data-addon-field="priceMedium"]');
+    const lgEl = row.querySelector('[data-addon-field="priceLarge"]');
+    const reqEl = row.querySelector('[data-addon-field="isRequired"]');
+
+    const name = (nameEl?.value || '').trim();
+    const reg = Number(regEl?.value || 0);
+    const med = Number(medEl?.value || 0);
+    const lg = Number(lgEl?.value || 0);
+
+    const anyPrice = !!(reg || med || lg);
+
+    // Completely empty row -> ignore
+    if (!name && !anyPrice) {
+      return;
+    }
+
+    const prices = [];
+    if (reg) prices.push({ size: 'REGULAR', price: reg });
+    if (med) prices.push({ size: 'MEDIUM', price: med });
+    if (lg) prices.push({ size: 'LARGE', price: lg });
+
+    addOns.push({
+      name,
+      isRequired: !!(reqEl && reqEl.checked),
+      prices
+    });
+  });
+
+  return addOns;
+}
+
+async function handleSaveEditProduct(e) {
+  e.preventDefault();
+
+  const idEl = document.getElementById('edit-product-id');
+  const nameEl = document.getElementById('edit-name');
+  const catEl = document.getElementById('edit-category');
+  const descEl = document.getElementById('edit-description');
+  const isVegEl = document.getElementById('edit-isVeg');
+  const isAvailEl = document.getElementById('edit-isAvailable');
+  const priceRegEl = document.getElementById('edit-price-regular');
+  const priceMedEl = document.getElementById('edit-price-medium');
+  const priceLgEl = document.getElementById('edit-price-large');
+
+  const id = idEl?.value;
+  const name = (nameEl?.value || '').trim();
+  const category = (catEl?.value || '').trim();
+  const description = (descEl?.value || '').trim();
+  const isVeg = isVegEl?.value === 'true';
+  const isAvailable = !!(isAvailEl && isAvailEl.checked);
+
+  if (!id) {
+    alert('Product ID missing.');
+    return;
+  }
+  if (!name || !category) {
+    alert('Name and Category are required.');
+    return;
+  }
+
+  const priceReg = Number(priceRegEl?.value || 0);
+  const priceMed = Number(priceMedEl?.value || 0);
+  const priceLg = Number(priceLgEl?.value || 0);
+
+  if (!priceReg && !priceMed && !priceLg) {
+    alert('Please enter a price for at least one size.');
+    return;
+  }
+
+  const sizes = [];
+  if (priceReg) sizes.push({ name: 'REGULAR', price: priceReg });
+  if (priceMed) sizes.push({ name: 'MEDIUM', price: priceMed });
+  if (priceLg) sizes.push({ name: 'LARGE', price: priceLg });
+
+  const addOns = collectEditAddOnsFromDOM();
+
+  const orig = adminProductsById[id] || {};
+  const productBody = {
+    name,
+    category,
+    description,
+    isVeg,
+    isAvailable,
+    sizes,
+    crusts: Array.isArray(orig.crusts) ? orig.crusts : [],
+    addOns
+  };
+
+  try {
+    await Api.put(`/admin/products/${id}`, productBody);
+    closeEditProductModal();
+    loadAdminProducts();
+  } catch (err) {
+    console.error('Edit product save error', err);
+    alert(err.message || 'Unable to save product changes.');
   }
 }
 
@@ -440,6 +799,83 @@ async function loadAdminOverview() {
       err.message ||
         'Unable to load overview. Please try again after some time.'
     );
+  }
+}
+
+// ====================== OUTLET SETTINGS (admin/index.html) ======================
+
+async function initAdminOutletForm() {
+  const form = document.getElementById('admin-outlet-form');
+  if (!form) return;
+
+  await loadAdminOutletConfig();
+
+  if (!form.dataset.bound) {
+    form.dataset.bound = 'true';
+    form.addEventListener('submit', handleSaveOutletConfig);
+  }
+}
+
+async function loadAdminOutletConfig() {
+  const openEl = document.getElementById('outlet-open-hour');
+  const closeEl = document.getElementById('outlet-close-hour');
+  const onlineEl = document.getElementById('outlet-online-orders');
+  const bogoEl = document.getElementById('outlet-bogo');
+  const statusEl = document.getElementById('admin-outlet-status');
+
+  if (!openEl || !closeEl || !onlineEl || !bogoEl) return;
+
+  try {
+    const res = await Api.get('/admin/outlet');
+    const { name, openHour, closeHour, settings } = res;
+
+    openEl.value = openHour ?? 10;
+    closeEl.value = closeHour ?? 23;
+    onlineEl.checked =
+      settings && typeof settings.enableOnlineOrders === 'boolean'
+        ? settings.enableOnlineOrders
+        : true;
+    bogoEl.checked =
+      settings && typeof settings.enableBogoTuesday === 'boolean'
+        ? settings.enableBogoTuesday
+        : true;
+
+    if (statusEl) {
+      statusEl.textContent = name ? `Outlet: ${name}` : '';
+    }
+  } catch (err) {
+    console.error('Admin load outlet error', err);
+    if (statusEl) {
+      statusEl.textContent =
+        err.message || 'Unable to load outlet settings.';
+    }
+  }
+}
+
+async function handleSaveOutletConfig(e) {
+  e.preventDefault();
+
+  const openEl = document.getElementById('outlet-open-hour');
+  const closeEl = document.getElementById('outlet-close-hour');
+  const onlineEl = document.getElementById('outlet-online-orders');
+  const bogoEl = document.getElementById('outlet-bogo');
+  const statusEl = document.getElementById('admin-outlet-status');
+
+  const body = {
+    openHour: Number(openEl.value || 0),
+    closeHour: Number(closeEl.value || 0),
+    enableOnlineOrders: !!onlineEl.checked,
+    enableBogoTuesday: !!bogoEl.checked
+  };
+
+  try {
+    await Api.put('/admin/outlet', body);
+    if (statusEl) {
+      statusEl.textContent = 'Outlet settings saved.';
+    }
+  } catch (err) {
+    console.error('Admin save outlet error', err);
+    alert(err.message || 'Unable to update outlet settings.');
   }
 }
 
@@ -687,41 +1123,10 @@ async function loadAdminDeliveryRules() {
     tbody.querySelectorAll('[data-toggle]').forEach(btn => {
       btn.addEventListener('click', () => handleToggleRule(btn.dataset.toggle));
     });
-
-    tbody.querySelectorAll('[data-image-product]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const id = btn.dataset.imageProduct;
-        const currentRow = btn.closest('tr');
-        const currentImg = currentRow
-          ? currentRow.querySelector('img')
-          : null;
-        const currentUrl = currentImg ? currentImg.src : '';
-
-        handleChangeProductImage(id, currentUrl);
-      });
-    });
   } catch (err) {
     console.error('Admin load rules error', err);
     loadingEl.textContent =
       err.message || 'Unable to load delivery rules.';
-  }
-}
-
-async function handleChangeProductImage(id, currentUrl) {
-  const newUrl = window.prompt(
-    'Enter image URL (leave blank to remove the image):',
-    currentUrl || ''
-  );
-
-  if (newUrl === null) return; // user cancelled
-
-  const body = { image: newUrl.trim() || '' };
-
-  try {
-    await Api.put(`/admin/products/${id}`, body);
-    loadAdminProducts();
-  } catch (err) {
-    alert(err.message || 'Unable to update the image.');
   }
 }
 

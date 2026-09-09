@@ -1,3 +1,4 @@
+// frontend/js/orders.js
 // Customer orders (list + details + realtime updates)
 
 const CURRENT_ORDER_KEY = 'pp_current_order_id';
@@ -347,11 +348,16 @@ function renderOrderDetail(order, container) {
 
   const subtotal = order.subtotal ?? 0;
   const deliveryFee = order.deliveryFee ?? 0;
+  const offerDiscount = order.offerDiscount ?? 0;
+  const couponDiscount = order.couponDiscount ?? 0;
   const rewardDiscount = order.rewardDiscount ?? 0;
   const taxAmount = order.taxAmount ?? 0;
+
+  const totalDiscount = offerDiscount + couponDiscount + rewardDiscount;
+
   const grandTotal =
     order.grandTotal ??
-    subtotal + deliveryFee + taxAmount - rewardDiscount;
+    subtotal + deliveryFee + taxAmount - totalDiscount;
 
   container.innerHTML = `
     <header class="order-detail-header">
@@ -415,6 +421,10 @@ function renderOrderDetail(order, container) {
         <div class="summary-row">
           <span>Delivery fee</span>
           <strong>${formatCurrency(deliveryFee)}</strong>
+        </div>
+        <div class="summary-row">
+          <span>Offer discount</span>
+          <strong>- ${formatCurrency(offerDiscount + couponDiscount)}</strong>
         </div>
         <div class="summary-row">
           <span>Reward discount</span>

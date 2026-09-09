@@ -12,35 +12,35 @@
       <a href="index.html" class="nav-logo">
         <span>🍕 Perfect <span class="dot">Pizza</span></span>
       </a>
-   <nav class="nav-links">
-  <a href="menu.html">Menu</a>
-  <a href="cart.html" class="cart-link">
-    Cart <span class="cart-count" data-cart-count>0</span>
-  </a>
-  <a href="login.html" data-login-link>Login</a>
-  <a href="#" data-logout-link style="display:none">Logout</a>
+      <nav class="nav-links">
+        <a href="menu.html">Menu</a>
+        <a href="cart.html" class="cart-link">
+          Cart <span class="cart-count" data-cart-count>0</span>
+        </a>
+        <a href="login.html" data-login-link>Login</a>
+        <a href="#" data-logout-link style="display:none">Logout</a>
 
-  <!-- NEW: Profile icon (only for CUSTOMER, JS se control hoga) -->
-  <button
-    type="button"
-    class="profile-btn"
-    data-profile-btn
-    title="My Profile"
-    style="display:none"
-  >
-    <span class="profile-initial" data-profile-initial>U</span>
-  </button>
+        <!-- Profile icon (only for CUSTOMER, controlled via JS) -->
+        <button
+          type="button"
+          class="profile-btn"
+          data-profile-btn
+          title="My Profile"
+          style="display:none"
+        >
+          <span class="profile-initial" data-profile-initial>U</span>
+        </button>
 
-  <span class="text-small" data-user-name></span>
-</nav>
+        <span class="text-small" data-user-name></span>
+      </nav>
     </div>
   </header>
 
   <section class="hero">
     <h1>Perfect Pizza – Singhpur Chauraha, Kalyanpur</h1>
     <p>
-      Garma garam mozzarella loaded pizzas, super saving combos aur reward coins
-      ke saath. Online order karo – pickup ya home delivery (5 KM radius).
+      Piping hot mozzarella-loaded pizzas, super saver combos, and reward coins.
+      Order online for pickup or home delivery (within a 5 KM radius).
     </p>
     <div class="hero-actions">
       <button
@@ -58,7 +58,8 @@
       </button>
     </div>
   </section>
-    <section class="container">
+
+  <section class="container">
     <p
       class="text-small"
       style="color:#555;margin-top:0.5rem"
@@ -69,12 +70,17 @@
       </strong>
     </p>
   </section>
-    <section class="container">
+
+  <section class="container">
     <section class="order-section" style="margin-top:0">
       <h2 style="margin-top:0">Exciting Offers</h2>
       <div class="orders-list" style="gap:0.75rem">
-        <!-- BOGO Tuesday card -->
-        <article class="order-card">
+        <!-- BOGO Tuesday card (time-based visible) -->
+        <article
+          class="order-card"
+          id="bogo-tuesday-card"
+          style="display:none"
+        >
           <div class="order-card-main">
             <div>
               <div class="order-id">Buy One Get One FREE</div>
@@ -86,48 +92,39 @@
                 <strong>Veg Special</strong> categories.
               </div>
               <div class="order-meta" style="margin-top:0.25rem">
-                Online orders only • Extra toppings &amp; add-ons not included in
-                free pizza.
+                Online orders only • Extra toppings &amp; add-ons are not
+                included in the free pizza.
               </div>
             </div>
           </div>
         </article>
 
-        <!-- Placeholder for future coupons -->
-        <article class="order-card">
-          <div class="order-card-main">
-            <div>
-              <div class="order-id">More offers coming soon</div>
-              <div class="order-meta">
-                Admin panel se custom coupons/discounts configure kar sakte ho
-                (next phase).
-              </div>
-            </div>
-          </div>
-        </article>
+        <!-- Active coupons from backend will be rendered here -->
+        <div id="coupon-offers"></div>
       </div>
     </section>
   </section>
 
   <footer class="site-footer">
-  <div class="container footer-inner">
-    <div class="footer-brand">
-      <strong>Perfect Pizza</strong>
-      <span class="footer-tagline">Singhpur Chauraha, Kalyanpur</span>
-    </div>
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <strong>Perfect Pizza</strong>
+        <span class="footer-tagline">Singhpur Chauraha, Kalyanpur</span>
+      </div>
 
-    <div class="footer-info">
-      <p>FSSAI No: <strong>22724669000456</strong></p>
-      <p>
-        Call / WhatsApp:
-        <a href="tel:9889229198">9889229198</a>
-      </p>
+      <div class="footer-info">
+        <p>FSSAI No: <strong>22724669000456</strong></p>
+        <p>
+          Call / WhatsApp:
+          <a href="tel:9889229198">9889229198</a>
+        </p>
+      </div>
     </div>
-  </div>
-</footer>
+  </footer>
 
   <script src="js/outlet.js"></script>
   <script src="js/api.js"></script>
   <script src="js/auth.js"></script>
+  <script src="js/home.js"></script> <!-- NEW -->
 </body>
 </html>

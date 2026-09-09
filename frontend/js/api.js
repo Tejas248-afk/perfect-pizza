@@ -1,5 +1,5 @@
 (function () {
-  const API_BASE_URL = 'http://localhost:5000/api';
+  const API_BASE_URL = 'https://perfect-pizza-pa9n.onrender.com/api';
 
   const STORAGE_KEYS = {
     TOKEN: 'pp_token',

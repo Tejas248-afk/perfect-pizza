@@ -91,8 +91,7 @@
         safeNumber(existingItem.quantity, 1) + quantity
       );
 
-      // Latest menu display price update kar rahe hain.
-      // Backend checkout me dobara actual price calculate karega.
+      // Latest display price update
       existingItem.unitPrice = normalizedItem.unitPrice;
     } else {
       items.push(normalizedItem);
@@ -302,7 +301,7 @@
 
       clearButton.addEventListener('click', () => {
         const shouldClear = window.confirm(
-          'Kya aap complete cart clear karna chahte hain?'
+          'Are you sure you want to clear your entire cart?'
         );
 
         if (shouldClear) {
@@ -312,20 +311,21 @@
     }
 
     if (checkoutButton && !checkoutButton.dataset.bound) {
-  checkoutButton.dataset.bound = 'true';
+      checkoutButton.dataset.bound = 'true';
 
-  checkoutButton.addEventListener('click', () => {
-    if (!getItems().length) return;
+      checkoutButton.addEventListener('click', () => {
+        if (!getItems().length) return;
 
-    if (!window.Api || !Api.getToken()) {
-      alert('Checkout ke liye pehle login karna zaroori hai.');
-      window.location.href = 'login.html';
-      return;
+        if (!window.Api || !Api.getToken()) {
+          alert('Please log in before proceeding to checkout.');
+          window.location.href = 'login.html';
+          return;
+        }
+
+        window.location.href = 'checkout.html';
+      });
     }
 
-    window.location.href = 'checkout.html';
-  });
-}
     updateCartBadges();
   }
 

@@ -323,7 +323,7 @@ function updateCheckoutSummary(previewOrder) {
   const subtotalEl = document.getElementById('summary-subtotal');
   const deliveryEl = document.getElementById('summary-delivery');
   const offerEl = document.getElementById('summary-offer');
-  const discountEl = document.getElementById('summary-discount'); // coins + coupon
+  const discountEl = document.getElementById('summary-discount'); // reward coins only
   const gstEl = document.getElementById('summary-gst');
   const totalEl = document.getElementById('summary-total');
 
@@ -361,13 +361,16 @@ function updateCheckoutSummary(previewOrder) {
   const grandTotal = Number(previewOrder.grandTotal || 0);
 
   deliveryEl.textContent = `₹${deliveryFee.toFixed(0)}`;
-  offerEl.textContent = offerDiscount
-    ? `-₹${offerDiscount.toFixed(0)}`
+
+  // Offer discount = automatic offers (BOGO etc.) + coupon discount
+  const totalOfferDiscount = offerDiscount + couponDiscount;
+  offerEl.textContent = totalOfferDiscount
+    ? `-₹${totalOfferDiscount.toFixed(0)}`
     : '₹0';
 
-  const totalExtraDiscount = couponDiscount + rewardDiscount;
-  discountEl.textContent = totalExtraDiscount
-    ? `-₹${totalExtraDiscount.toFixed(0)}`
+  // Reward discount row = reward coins discount only
+  discountEl.textContent = rewardDiscount
+    ? `-₹${rewardDiscount.toFixed(0)}`
     : '₹0';
 
   gstEl.textContent = `₹${taxAmount.toFixed(0)}`;
@@ -458,13 +461,8 @@ async function handlePlaceOrder() {
 
       Cart.clear();
 
-      alert(
-        `Order placed successfully!\nOrder ID: ${res.orderId}\nTotal: ₹${res.order.grandTotal.toFixed(
-          0
-        )}`
-      );
-
-      window.location.href = 'menu.html';
+      // Redirect to invoice / order summary page
+      window.location.href = `order-success.html?orderId=${res.orderId}`;
       return;
     }
 

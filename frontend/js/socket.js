@@ -2,7 +2,7 @@
 window.AppSocket = (function () {
   let socket = null;
   let connected = false;
-  const SOCKET_URL = 'http://localhost:5000';
+  const SOCKET_URL = 'https://perfect-pizza-pa9n.onrender.com';
 
   function ensureConnected() {
     if (socket && connected) return socket;
