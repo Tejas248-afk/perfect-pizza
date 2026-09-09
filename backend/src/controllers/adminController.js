@@ -2,13 +2,20 @@ const Order = require('../models/Order');
 const User = require('../models/User');
 const DeliveryRule = require('../models/DeliveryRule');
 
-// GET /api/admin/overview
+// GET /api/admin/overview?outletId=
 exports.getOverview = async (req, res) => {
   try {
+    const { outletId } = req.query;
+
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
 
-    const matchToday = { createdAt: { $gte: startOfDay } };
+    const matchToday = {
+      createdAt: { $gte: startOfDay }
+    };
+    if (outletId) {
+      matchToday.outlet = outletId;
+    }
 
     const todayAgg = await Order.aggregate([
       { $match: matchToday },
@@ -66,14 +73,31 @@ exports.getOverview = async (req, res) => {
   }
 };
 
-// GET /api/admin/orders?status=&search=&page=&limit=
+// GET /api/admin/orders?status=&search=&page=&limit=&outletId=&onlyToday=
 exports.getOrders = async (req, res) => {
   try {
-    const { status, search, page = 1, limit = 20 } = req.query;
+    const {
+      status,
+      search,
+      page = 1,
+      limit = 20,
+      outletId,
+      onlyToday
+    } = req.query;
     const query = {};
 
     if (status && status !== 'ALL') {
       query.status = status;
+    }
+
+    if (outletId) {
+      query.outlet = outletId;
+    }
+
+    if (onlyToday === 'true') {
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+      query.createdAt = { $gte: startOfDay };
     }
 
     if (search) {

@@ -73,7 +73,7 @@ exports.updateOutletConfig = async (req, res) => {
   }
 };
 
-// GET /api/admin/outlets
+// GET /api/admin/outlets  (navbar dropdown)
 exports.listOutlets = async (req, res) => {
   try {
     const outlets = await Outlet.find({ isActive: true }).select(
@@ -126,7 +126,7 @@ exports.createOutlet = async (req, res) => {
     }
 
     const outlet = await Outlet.create({
-      name: name.trim(),
+      name: String(name).trim(),
       code: String(code).trim().toUpperCase(),
       city: (city || '').trim(),
       address: (address || '').trim(),
@@ -147,6 +147,15 @@ exports.createOutlet = async (req, res) => {
     return res.status(201).json({ outlet });
   } catch (err) {
     console.error('createOutlet error:', err);
+
+    // Duplicate code error
+    if (err.code === 11000 && err.keyPattern && err.keyPattern.code) {
+      return res.status(400).json({
+        message: 'Outlet code must be unique.',
+        error: err.message
+      });
+    }
+
     return res.status(400).json({
       message: 'Unable to create outlet.',
       error: err.message
@@ -162,19 +171,40 @@ exports.updateOutlet = async (req, res) => {
 
     const update = {};
 
-    if (body.name != null) update.name = body.name.trim();
-    if (body.code != null) update.code = String(body.code).trim().toUpperCase();
-    if (body.city != null) update.city = body.city.trim();
-    if (body.address != null) update.address = body.address.trim();
+    // Basic fields
+    if (body.name != null && String(body.name).trim()) {
+      update.name = String(body.name).trim();
+    }
+    if (body.code != null && String(body.code).trim()) {
+      update.code = String(body.code).trim().toUpperCase();
+    }
+    if (body.city != null) update.city = String(body.city).trim();
+    if (body.address != null) update.address = String(body.address).trim();
 
-    if (body.lat != null) update.lat = Number(body.lat);
-    if (body.lng != null) update.lng = Number(body.lng);
-    if (body.deliveryRadiusKm != null)
-      update.deliveryRadiusKm = Number(body.deliveryRadiusKm);
+    // Numbers
+    if (body.lat != null) {
+      const n = Number(body.lat);
+      if (!Number.isNaN(n)) update.lat = n;
+    }
+    if (body.lng != null) {
+      const n = Number(body.lng);
+      if (!Number.isNaN(n)) update.lng = n;
+    }
+    if (body.deliveryRadiusKm != null) {
+      const n = Number(body.deliveryRadiusKm);
+      if (!Number.isNaN(n)) update.deliveryRadiusKm = n;
+    }
 
-    if (body.openHour != null) update.openHour = Number(body.openHour);
-    if (body.closeHour != null) update.closeHour = Number(body.closeHour);
+    if (body.openHour != null) {
+      const n = Number(body.openHour);
+      if (!Number.isNaN(n)) update.openHour = n;
+    }
+    if (body.closeHour != null) {
+      const n = Number(body.closeHour);
+      if (!Number.isNaN(n)) update.closeHour = n;
+    }
 
+    // Phone numbers
     if (body.phoneNumbers != null) {
       if (Array.isArray(body.phoneNumbers)) {
         update.phoneNumbers = body.phoneNumbers;
@@ -186,21 +216,18 @@ exports.updateOutlet = async (req, res) => {
       }
     }
 
-    if (
-      body.enableOnlineOrders != null ||
-      body.enableBogoTuesday != null
-    ) {
-      update.settings = update.settings || {};
-      if (body.enableOnlineOrders != null) {
-        update['settings.enableOnlineOrders'] = !!body.enableOnlineOrders;
-      }
-      if (body.enableBogoTuesday != null) {
-        update['settings.enableBogoTuesday'] = !!body.enableBogoTuesday;
-      }
+    // Settings flags – root settings object ko touch nahi kar rahe,
+    // sirf nested paths update kar rahe hain.
+    if (body.enableOnlineOrders != null) {
+      update['settings.enableOnlineOrders'] = !!body.enableOnlineOrders;
+    }
+    if (body.enableBogoTuesday != null) {
+      update['settings.enableBogoTuesday'] = !!body.enableBogoTuesday;
     }
 
     const outlet = await Outlet.findByIdAndUpdate(id, update, {
-      new: true
+      new: true,
+      runValidators: true
     });
 
     if (!outlet) {
@@ -210,6 +237,14 @@ exports.updateOutlet = async (req, res) => {
     return res.json({ outlet });
   } catch (err) {
     console.error('updateOutlet error:', err);
+
+    if (err.code === 11000 && err.keyPattern && err.keyPattern.code) {
+      return res.status(400).json({
+        message: 'Outlet code must be unique.',
+        error: err.message
+      });
+    }
+
     return res.status(400).json({
       message: 'Unable to update outlet.',
       error: err.message
