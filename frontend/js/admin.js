@@ -132,6 +132,359 @@ async function initAdminOutletSelector() {
 let currentImageProductId = null;
 let adminProductsById = {};
 
+// ---------- Combo presets (same as old frontend hardcoded combos) ----------
+
+const ADMIN_SINGLE_TOPPING_OPTIONS = [
+  { label: 'Onion Pizza', extraPrice: 0 },
+  { label: 'Corn Pizza', extraPrice: 10 },
+  { label: 'Tomato Pizza', extraPrice: 0 },
+  { label: 'Capsicum Pizza', extraPrice: 10 },
+  { label: 'Cheese Paneer Pizza', extraPrice: 60 }
+];
+
+const ADMIN_BASIC_SIDE_OPTIONS = [
+  { label: 'Garlic Bread [8 Sticks]', extraPrice: 0 }
+];
+
+const ADMIN_BASIC_DRINK_OPTIONS_250 = [
+  { label: 'ColdDrink 250ml', extraPrice: 0 }
+];
+
+const ADMIN_BASIC_DRINK_OPTIONS_1L = [
+  { label: 'ColdDrink 1L', extraPrice: 0 }
+];
+
+// Yahaan wohi combos diye hain jo menu.js me LEGACY_COMBO_CONFIG me the
+const ADMIN_COMBO_PRESETS = {
+  'Zingy Pizza Combo': {
+    groups: [
+      {
+        key: 'pizza1',
+        title: 'Choose Pizza [Regular]',
+        required: true,
+        options: ADMIN_SINGLE_TOPPING_OPTIONS
+      },
+      {
+        key: 'side1',
+        title: 'Zingy Parcel 1',
+        required: true,
+        options: [{ label: 'Zingy Parcel', extraPrice: 0 }]
+      },
+      {
+        key: 'side2',
+        title: 'Zingy Parcel 2',
+        required: true,
+        options: [{ label: 'Zingy Parcel', extraPrice: 0 }]
+      },
+      {
+        key: 'drink',
+        title: 'Beverages',
+        required: true,
+        options: ADMIN_BASIC_DRINK_OPTIONS_250
+      }
+    ]
+  },
+
+  'Garlic Pizza Combo': {
+    groups: [
+      {
+        key: 'pizza1',
+        title: 'Choose Pizza [Regular]',
+        required: true,
+        options: ADMIN_SINGLE_TOPPING_OPTIONS
+      },
+      {
+        key: 'side',
+        title: 'Side',
+        required: true,
+        options: [{ label: 'Garlic Bread', extraPrice: 0 }]
+      },
+      {
+        key: 'drink',
+        title: 'Beverages',
+        required: true,
+        options: ADMIN_BASIC_DRINK_OPTIONS_250
+      }
+    ]
+  },
+
+  'Pizza Pasta Combo': {
+    groups: [
+      {
+        key: 'pizza1',
+        title: 'Choose Pizza [Regular]',
+        required: true,
+        options: ADMIN_SINGLE_TOPPING_OPTIONS
+      },
+      {
+        key: 'side',
+        title: 'Side',
+        required: true,
+        options: [{ label: 'Red Pasta', extraPrice: 0 }]
+      },
+      {
+        key: 'drink',
+        title: 'Beverages',
+        required: true,
+        options: ADMIN_BASIC_DRINK_OPTIONS_250
+      }
+    ]
+  },
+
+  'Meal For 2': {
+    groups: [
+      {
+        key: 'firstPizza',
+        title: 'Choose 1st Pizza [Regular]',
+        required: true,
+        options: ADMIN_SINGLE_TOPPING_OPTIONS
+      },
+      {
+        key: 'secondPizza',
+        title: 'Choose 2nd Pizza [Regular]',
+        required: true,
+        options: ADMIN_SINGLE_TOPPING_OPTIONS
+      },
+      {
+        key: 'side',
+        title: 'Side',
+        required: true,
+        options: ADMIN_BASIC_SIDE_OPTIONS
+      },
+      {
+        key: 'drink',
+        title: 'Beverages',
+        required: true,
+        options: ADMIN_BASIC_DRINK_OPTIONS_250
+      }
+    ]
+  },
+
+  'Meal For 3': {
+    groups: [
+      {
+        key: 'pizza1',
+        title: 'Choose 1st Pizza [Regular]',
+        required: true,
+        options: ADMIN_SINGLE_TOPPING_OPTIONS
+      },
+      {
+        key: 'pizza2',
+        title: 'Choose 2nd Pizza [Regular]',
+        required: true,
+        options: ADMIN_SINGLE_TOPPING_OPTIONS
+      },
+      {
+        key: 'pizza3',
+        title: 'Choose 3rd Pizza [Regular]',
+        required: true,
+        options: ADMIN_SINGLE_TOPPING_OPTIONS
+      },
+      {
+        key: 'side',
+        title: 'Side',
+        required: true,
+        options: ADMIN_BASIC_SIDE_OPTIONS
+      },
+      {
+        key: 'dessert',
+        title: 'Dessert',
+        required: true,
+        options: [{ label: 'Choco Lava', extraPrice: 0 }]
+      },
+      {
+        key: 'drink',
+        title: 'Beverages',
+        required: true,
+        options: ADMIN_BASIC_DRINK_OPTIONS_1L
+      }
+    ]
+  },
+
+  'Combo-A': {
+    groups: [
+      {
+        key: 'pizza1',
+        title: 'Choose Pizza [Regular]',
+        required: true,
+        options: [
+          { label: 'Onion Capsicum', extraPrice: 0 },
+          { label: 'Tomato Corn', extraPrice: 0 }
+        ]
+      },
+      {
+        key: 'drink',
+        title: 'Beverages',
+        required: true,
+        options: ADMIN_BASIC_DRINK_OPTIONS_250
+      }
+    ]
+  },
+
+  'Combo-B': {
+    groups: [
+      {
+        key: 'pizza1',
+        title: 'Choose Pizza [Regular]',
+        required: true,
+        options: [
+          { label: 'Cheese Onion', extraPrice: 0 },
+          { label: 'Tomato', extraPrice: 0 }
+        ]
+      },
+      {
+        key: 'drink',
+        title: 'Beverages',
+        required: true,
+        options: ADMIN_BASIC_DRINK_OPTIONS_250
+      }
+    ]
+  },
+
+  'Combo-C': {
+    groups: [
+      {
+        key: 'pizza1',
+        title: 'Choose Pizza [Regular]',
+        required: true,
+        options: [
+          { label: 'Cheese Corn', extraPrice: 0 },
+          { label: 'Capsicum', extraPrice: 0 }
+        ]
+      },
+      {
+        key: 'drink',
+        title: 'Beverages',
+        required: true,
+        options: ADMIN_BASIC_DRINK_OPTIONS_250
+      }
+    ]
+  },
+
+  'Combo-D': {
+    groups: [
+      {
+        key: 'pizza1',
+        title: 'Choose Pizza [Regular]',
+        required: true,
+        options: [
+          { label: 'Corn Pizza', extraPrice: 0 },
+          { label: 'Capsicum Pizza', extraPrice: 0 }
+        ]
+      },
+      {
+        key: 'drink',
+        title: 'Beverages',
+        required: true,
+        options: ADMIN_BASIC_DRINK_OPTIONS_250
+      }
+    ]
+  },
+
+  'Combo-E': {
+    groups: [
+      {
+        key: 'pizza1',
+        title: 'Choose Pizza [Regular]',
+        required: true,
+        options: [
+          { label: 'Tomato Corn Pizza', extraPrice: 0 },
+          { label: 'Tomato Pizza', extraPrice: 0 }
+        ]
+      },
+      {
+        key: 'drink',
+        title: 'Beverages',
+        required: true,
+        options: ADMIN_BASIC_DRINK_OPTIONS_250
+      }
+    ]
+  },
+
+  'Combo-F': {
+    groups: [
+      {
+        key: 'pizza1',
+        title: 'Choose Pizza [Regular]',
+        required: true,
+        options: [
+          { label: 'Tomato Corn Pizza', extraPrice: 0 },
+          { label: 'Tomato Pizza', extraPrice: 0 }
+        ]
+      },
+      {
+        key: 'drink',
+        title: 'Beverages',
+        required: true,
+        options: ADMIN_BASIC_DRINK_OPTIONS_250
+      }
+    ]
+  },
+
+  'Combo-G': {
+    groups: [
+      {
+        key: 'pizza1',
+        title: 'Choose Pizza [Regular]',
+        required: true,
+        options: [
+          { label: 'Tomato Corn Pizza', extraPrice: 0 },
+          { label: 'Tomato Pizza', extraPrice: 0 }
+        ]
+      },
+      {
+        key: 'drink',
+        title: 'Beverages',
+        required: true,
+        options: ADMIN_BASIC_DRINK_OPTIONS_250
+      }
+    ]
+  },
+
+  'Combo-H': {
+    groups: [
+      {
+        key: 'pizza1',
+        title: 'Choose Pizza [Regular]',
+        required: true,
+        options: [
+          { label: 'Onion Capsicum', extraPrice: 0 },
+          { label: 'Tomato Corn', extraPrice: 0 }
+        ]
+      },
+      {
+        key: 'drink',
+        title: 'Beverages',
+        required: true,
+        options: ADMIN_BASIC_DRINK_OPTIONS_250
+      }
+    ]
+  },
+
+  'Burger Pizza Combo': {
+    groups: [
+      {
+        key: 'pizza1',
+        title: 'Pizza',
+        required: true,
+        options: [{ label: 'Paneer Onion Pizza', extraPrice: 0 }]
+      },
+      {
+        key: 'side',
+        title: 'Side',
+        required: true,
+        options: [{ label: 'Burger', extraPrice: 0 }]
+      },
+      {
+        key: 'drink',
+        title: 'Beverages',
+        required: true,
+        options: ADMIN_BASIC_DRINK_OPTIONS_250
+      }
+    ]
+  }
+};
+
 // ====================== PRODUCTS (admin/products.html) ======================
 
 async function initAdminProductsPage() {
@@ -495,6 +848,12 @@ async function handleAddProduct(e) {
       ? Number(form.availableToHour.value)
       : null;
 
+  const daysStr =
+    form.availableDaysOfWeek && form.availableDaysOfWeek.value
+      ? form.availableDaysOfWeek.value.trim()
+      : '';
+  const availableDaysOfWeek = parseDaysOfWeek(daysStr);
+
   const productBody = {
     name,
     category,
@@ -511,7 +870,8 @@ async function handleAddProduct(e) {
     ],
     addOns: [],
     availableFromHour,
-    availableToHour
+    availableToHour,
+    availableDaysOfWeek
   };
 
   const formData = new FormData();
@@ -630,6 +990,7 @@ function openEditProductModal(productId) {
   const priceLgEl = document.getElementById('edit-price-large');
   const fromEl = document.getElementById('edit-available-from');
   const toEl = document.getElementById('edit-available-to');
+  const daysEl = document.getElementById('edit-available-days');
 
   if (!idEl) return;
 
@@ -639,7 +1000,7 @@ function openEditProductModal(productId) {
   if (isVegEl) isVegEl.value = product.isVeg ? 'true' : 'false';
   if (isAvailEl) isAvailEl.checked = !!product.isAvailable;
 
-  // Fill category options from all products
+  // Fill category options
   if (catSelectEl) {
     const allCats = Array.from(
       new Set(
@@ -675,7 +1036,6 @@ function openEditProductModal(productId) {
       }
     }
 
-    // change handler (only once)
     if (!catSelectEl.dataset.bound) {
       catSelectEl.dataset.bound = 'true';
       catSelectEl.addEventListener('change', () => {
@@ -700,15 +1060,20 @@ function openEditProductModal(productId) {
   if (priceMedEl) priceMedEl.value = findPrice('MEDIUM') || '';
   if (priceLgEl) priceLgEl.value = findPrice('LARGE') || '';
 
-  // Time window
+  // Time + days
   if (fromEl) fromEl.value = product.availableFromHour ?? '';
   if (toEl) toEl.value = product.availableToHour ?? '';
+  if (daysEl) {
+    daysEl.value = Array.isArray(product.availableDaysOfWeek)
+      ? product.availableDaysOfWeek.join(',')
+      : '';
+  }
 
   // Add-ons
   renderEditAddOns(product.addOns || []);
 
-  // Combo config
-  renderEditComboConfig(product.comboConfig || null);
+  // Combo config (pre-filled from DB else presets)
+  renderEditComboConfig(product.comboConfig || null, product.name);
 
   const modal = document.getElementById('admin-edit-product-modal');
   if (modal) {
@@ -836,9 +1201,8 @@ function collectEditAddOnsFromDOM() {
 
     const anyPrice = !!(reg || med || lg);
 
-    // Completely empty row -> ignore
     if (!name && !anyPrice) {
-      return;
+      return; // empty row ignore
     }
 
     const prices = [];
@@ -966,28 +1330,35 @@ function createComboGroupRow(group) {
   const removeGroupBtn = groupEl.querySelector('[data-combo-group-remove]');
   removeGroupBtn.addEventListener('click', () => groupEl.remove());
 
-  // Existing options
   if (options.length) {
     options.forEach(opt => createComboOptionRow(groupEl, opt));
   } else {
-    // Ek empty option row by default
     createComboOptionRow(groupEl, {});
   }
 
   container.appendChild(groupEl);
 }
 
-function renderEditComboConfig(comboConfig) {
+function renderEditComboConfig(comboConfig, productName) {
   const container = document.getElementById('edit-combo-groups-container');
   if (!container) return;
   container.innerHTML = '';
 
-  if (!comboConfig) return;
+  let cfg = comboConfig;
 
-  const rawGroups = Array.isArray(comboConfig.groups)
-    ? comboConfig.groups
-    : Array.isArray(comboConfig)
-      ? comboConfig
+  // Agar DB me comboConfig nahi hai, to presets se preload karo
+  if ((!cfg || !cfg.groups || !cfg.groups.length) && productName) {
+    if (ADMIN_COMBO_PRESETS[productName]) {
+      cfg = ADMIN_COMBO_PRESETS[productName];
+    }
+  }
+
+  if (!cfg) return;
+
+  const rawGroups = Array.isArray(cfg.groups)
+    ? cfg.groups
+    : Array.isArray(cfg)
+      ? cfg
       : [];
 
   rawGroups.forEach(group => createComboGroupRow(group));
@@ -1034,16 +1405,11 @@ function collectEditComboConfigFromDOM() {
       const label = (labelEl?.value || '').trim();
       const extraPrice = Number(extraPriceEl?.value || 0);
 
-      // Blank option -> ignore
       if (!label && !extraPrice) return;
 
-      options.push({
-        label,
-        extraPrice
-      });
+      options.push({ label, extraPrice });
     });
 
-    // Pure empty group (no title, no options) -> ignore
     if (!rawTitle && !options.length) return;
 
     const keyBase = rawTitle
@@ -1082,11 +1448,11 @@ async function handleSaveEditProduct(e) {
   const priceLgEl = document.getElementById('edit-price-large');
   const fromEl = document.getElementById('edit-available-from');
   const toEl = document.getElementById('edit-available-to');
+  const daysEl = document.getElementById('edit-available-days');
 
   const id = idEl?.value;
   const name = (nameEl?.value || '').trim();
 
-  // Category from dropdown + custom
   let category = '';
   if (catSelectEl) {
     const val = catSelectEl.value;
@@ -1127,11 +1493,13 @@ async function handleSaveEditProduct(e) {
   const addOns = collectEditAddOnsFromDOM();
   const comboGroups = collectEditComboConfigFromDOM();
 
-  // Time window
   const availableFromHour =
     fromEl && fromEl.value !== '' ? Number(fromEl.value) : null;
   const availableToHour =
     toEl && toEl.value !== '' ? Number(toEl.value) : null;
+
+  const daysStr = daysEl ? daysEl.value.trim() : '';
+  const availableDaysOfWeek = parseDaysOfWeek(daysStr);
 
   const orig = adminProductsById[id] || {};
   const productBody = {
@@ -1148,7 +1516,8 @@ async function handleSaveEditProduct(e) {
         ? { groups: comboGroups }
         : null,
     availableFromHour,
-    availableToHour
+    availableToHour,
+    availableDaysOfWeek
   };
 
   try {
@@ -1346,7 +1715,7 @@ async function loadAdminOrders(page = 1) {
         timeStyle: 'short'
       });
 
-      const statusKey = (o.status || '').toLowerCase(); // e.g. placed, out_for_delivery
+      const statusKey = (o.status || '').toLowerCase();
       const badgeClass = `status-${statusKey}`;
 
       const statusOptions = allowedStatuses
@@ -1572,7 +1941,8 @@ async function loadAdminDeliveryRules() {
   } catch (err) {
     console.error('Admin load rules error', err);
     loadingEl.textContent =
-      err.message || 'Unable to load delivery rules.';
+      err.message ||
+      'Unable to load delivery rules.';
   }
 }
 
@@ -1988,7 +2358,6 @@ async function handleSaveOutlet(id) {
       value = value.trim();
     }
 
-    // empty name/code/city bhejne ki zarurat nahi (purana value DB me rahe)
     if (
       (field === 'name' || field === 'code' || field === 'city') &&
       !value
@@ -2004,7 +2373,6 @@ async function handleSaveOutlet(id) {
     } else if (field === 'name' || field === 'code' || field === 'city') {
       body[field] = value;
     }
-    // lat/lng/phoneNumbers agar baad me add karne ho to yahan bhi handle kar sakte ho
   });
 
   try {

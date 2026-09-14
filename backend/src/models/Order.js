@@ -1,3 +1,4 @@
+// src/models/Order.js
 const mongoose = require('mongoose');
 
 const { Schema } = mongoose;
@@ -13,6 +14,48 @@ const orderItemAddOnSchema = new Schema(
   { _id: false }
 );
 
+// Combo ke andar ke items (old, legacy use)
+// e.g. ["Pizza", "Burger", "Drink"] etc – agar kahin use ho raha ho to rehne do
+const comboItemSchema = new Schema(
+  {
+    name: {
+      type: String,
+      trim: true
+    },
+    quantity: {
+      type: Number,
+      default: 1,
+      min: 1
+    }
+  },
+  { _id: false }
+);
+
+// NEW: comboSelections – frontend se aane wali exact selection
+// e.g. { groupTitle: "Pizza", label: "Paneer Onion Pizza" }
+const comboSelectionSchema = new Schema(
+  {
+    groupKey: {
+      type: String,
+      trim: true
+    },
+    groupTitle: {
+      type: String,
+      trim: true
+    },
+    label: {
+      type: String,
+      trim: true
+    },
+    extraPrice: {
+      type: Number,
+      min: 0,
+      default: 0
+    }
+  },
+  { _id: false }
+);
+
 const orderItemSchema = new Schema(
   {
     product: {
@@ -24,6 +67,18 @@ const orderItemSchema = new Schema(
     image: String,
     category: String,
     isVeg: Boolean,
+
+    // LEGACY: agar pehle se kuch use ho raha ho to
+    comboItems: [comboItemSchema],
+
+    // NEW: combo detail exactly jaisa customer ne choose kiya
+    // Example:
+    // [
+    //   { groupTitle: "Pizza", label: "Paneer Onion Pizza" },
+    //   { groupTitle: "Side", label: "Burger" },
+    //   { groupTitle: "Beverages", label: "ColdDrink 250ml" }
+    // ]
+    comboSelections: [comboSelectionSchema],
 
     size: {
       name: { type: String, enum: SIZE_TYPES },
@@ -85,7 +140,7 @@ const paymentSchema = new Schema(
   { _id: false }
 );
 
-// Yahan naya status add kiya: PENDING_PAYMENT
+// Order ke possible statuses
 const ORDER_STATUS = [
   'PENDING_PAYMENT',
   'PLACED',
@@ -107,7 +162,6 @@ const orderSchema = new Schema(
     outlet: {
       type: Schema.Types.ObjectId,
       ref: 'Outlet'
-      // abhi required nahi, naye orders se fill hoga
     },
     outletName: {
       type: String,
@@ -172,6 +226,13 @@ const orderSchema = new Schema(
       default: 0,
       min: 0
     },
+
+    // -------- STATUS TIMESTAMPS --------
+    placedAt: { type: Date },
+    bakingAt: { type: Date },
+    outForDeliveryAt: { type: Date },
+    deliveredAt: { type: Date },
+    cancelledAt: { type: Date },
 
     payment: paymentSchema,
 

@@ -170,7 +170,7 @@
         </div>
       </div>
 
-      <!-- OPTIONAL: add time window for new products too -->
+      <!-- Time window + days for new products -->
       <div
         style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:0.75rem;margin-top:0.75rem;">
         <div>
@@ -193,6 +193,18 @@
             class="input"
             min="0"
             max="23"
+          />
+        </div>
+        <div>
+          <label class="text-small" for="admin-add-available-days">
+            Available Days (0–6)
+          </label>
+          <input
+            id="admin-add-available-days"
+            type="text"
+            name="availableDaysOfWeek"
+            class="input"
+            placeholder="e.g. 1,2,3 or empty = all days"
           />
         </div>
       </div>
@@ -300,7 +312,7 @@
           </div>
         </div>
 
-        <!-- Availability + Time window -->
+        <!-- Availability + Time window + Days -->
         <div style="margin-top:0.75rem;">
           <label>
             <input type="checkbox" id="edit-isAvailable" />
@@ -318,6 +330,17 @@
           <div>
             <label class="text-small" for="edit-available-to">Available Till (0–23)</label>
             <input id="edit-available-to" type="number" class="input" min="0" max="23" />
+          </div>
+          <div>
+            <label class="text-small" for="edit-available-days">
+              Available Days (0–6)
+            </label>
+            <input
+              id="edit-available-days"
+              type="text"
+              class="input"
+              placeholder="e.g. 1,2,3 or empty = all days"
+            />
           </div>
         </div>
 

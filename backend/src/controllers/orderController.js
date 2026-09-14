@@ -7,16 +7,34 @@ const {
   emitOrderStatusUpdated
 } = require('../sockets/socket');
 
+// ---------- CART ITEM VALIDATION ----------
+
 const cartItemSchema = Joi.object({
   productId: Joi.string().required(),
   size: Joi.string().required(),
   crust: Joi.string().required(),
   quantity: Joi.number().integer().min(1).max(20).required(),
+
   addOns: Joi.array()
     .items(
       Joi.object({
         name: Joi.string().required(),
         quantity: Joi.number().integer().min(1).max(5).default(1)
+      })
+    )
+    .default([]),
+
+  // NEW: frontend se aane wala combo detail
+  // [
+  //   { groupKey, groupTitle, label, extraPrice }
+  // ]
+  comboSelections: Joi.array()
+    .items(
+      Joi.object({
+        groupKey: Joi.string().allow('', null),
+        groupTitle: Joi.string().allow('', null),
+        label: Joi.string().required(),
+        extraPrice: Joi.number().min(0).default(0)
       })
     )
     .default([])
@@ -141,7 +159,7 @@ exports.createCodOrder = async (req, res) => {
       user: preview.userId,
       outlet: outlet._id,
       outletName: outlet.name,
-      items: preview.items,
+      items: preview.items,          // yahan ab comboSelections bhi aa jayenge
       delivery: preview.delivery,
       subtotal: preview.subtotal,
       offerDiscount: preview.offerDiscount,
@@ -153,6 +171,10 @@ exports.createCodOrder = async (req, res) => {
       rewardDiscount: preview.rewardDiscount,
       grandTotal: preview.grandTotal,
       rewardCoinsEarned: preview.rewardCoinsEarned,
+
+      // COD orders ke liye placed time abhi
+      placedAt: new Date(),
+
       payment: {
         paymentType: 'COD',
         paymentStatus: 'PENDING',
@@ -200,16 +222,13 @@ exports.createCodOrder = async (req, res) => {
 // GET /api/orders/my
 exports.getMyOrders = async (req, res) => {
   try {
-    // IMPORTANT CHANGE:
-    // yahan PENDING_PAYMENT orders ko hide kar rahe hain,
-    // taaki half-paid / unpaid PayU orders customer ko na dikhein.
     const orders = await Order.find({
       user: req.user._id,
       status: { $ne: 'PENDING_PAYMENT' }
     })
       .sort({ createdAt: -1 })
       .select(
-        'outletName subtotal deliveryFee taxAmount offerDiscount couponDiscount rewardDiscount grandTotal status payment createdAt'
+        'outletName subtotal deliveryFee taxAmount offerDiscount couponDiscount rewardDiscount grandTotal status payment createdAt placedAt bakingAt outForDeliveryAt deliveredAt cancelledAt'
       );
 
     return res.json({ orders });
@@ -256,7 +275,6 @@ exports.getKitchenOrders = async (req, res) => {
 
     // DEFAULT: active
     if (filter === 'active' || !filter) {
-      // Sirf yehi statuses dikhen
       query.status = { $in: ['PLACED', 'BAKING', 'OUT_FOR_DELIVERY'] };
     } else if (filter === 'completed') {
       query.status = 'DELIVERED';
@@ -333,6 +351,32 @@ exports.updateOrderStatus = async (req, res) => {
       order.payment.paymentStatus = 'SUCCESS';
     }
 
+    const now = new Date();
+
+    // placedAt safety
+    if (status === 'PLACED' && !order.placedAt) {
+      order.placedAt = now;
+    }
+    if (!order.placedAt && currentStatus === 'PLACED') {
+      order.placedAt = now;
+    }
+
+    if (status === 'BAKING' && !order.bakingAt) {
+      order.bakingAt = now;
+    }
+
+    if (status === 'OUT_FOR_DELIVERY' && !order.outForDeliveryAt) {
+      order.outForDeliveryAt = now;
+    }
+
+    if (status === 'DELIVERED' && !order.deliveredAt) {
+      order.deliveredAt = now;
+    }
+
+    if (status === 'CANCELLED' && !order.cancelledAt) {
+      order.cancelledAt = now;
+    }
+
     await order.save();
     emitOrderStatusUpdated(order);
 
@@ -359,14 +403,16 @@ exports.deleteOrder = async (req, res) => {
 
     // CUSTOMER can only delete their own order
     if (role === 'CUSTOMER' && String(order.user) !== String(req.user._id)) {
-      return res.status(403).json({ message: 'You are not allowed to delete this order.' });
+      return res
+        .status(403)
+        .json({ message: 'You are not allowed to delete this order.' });
     }
 
     await order.deleteOne();
 
     return res.json({ message: 'Order deleted successfully' });
   } catch (err) {
-    console.error('deleteOrder error:', err);
+    console.error('deleteOrder error', err);
     return res
       .status(500)
       .json({ message: 'Unable to delete order right now.' });

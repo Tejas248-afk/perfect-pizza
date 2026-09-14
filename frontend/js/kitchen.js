@@ -60,12 +60,40 @@ function formatAddOns(addOns) {
     .join(', ');
 }
 
+/**
+ * Combo ko list / KOT me ek line me dikhane ke liye
+ * - Agar comboSelections hai to usko priority se use karte hain
+ *   Example: "Pizza: Paneer Onion Pizza, Side: Burger, Beverages: ColdDrink 250ml"
+ * - Warna purane comboItems (name + quantity) use karte hain
+ */
+function formatComboItems(comboItems, comboSelections) {
+  const selections = Array.isArray(comboSelections)
+    ? comboSelections
+    : [];
+
+  if (selections.length) {
+    return selections
+      .map(sel => {
+        const label = sel.label || '';
+        const title = sel.groupTitle || sel.groupKey || '';
+        return title ? `${title}: ${label}` : label;
+      })
+      .filter(Boolean)
+      .join(', ');
+  }
+
+  if (!Array.isArray(comboItems) || !comboItems.length) return '';
+  return comboItems
+    .map(ci => {
+      const qty = Number(ci.quantity || 1);
+      return `${ci.name}${qty > 1 ? ` × ${qty}` : ''}`;
+    })
+    .join(', ');
+}
+
 const KITCHEN_CURRENT_ORDER_KEY = 'pp_kitchen_current_order_id';
 
-// Polling ke liye previous active orders count track karenge
 let lastActiveCount = null;
-
-// Global audio context (ek hi baar banega)
 let kitchenAudioCtx = null;
 let kitchenSoundEnabled = false;
 
@@ -101,7 +129,7 @@ function setupKitchenSoundUnlock() {
   document.addEventListener('click', handler);
 }
 
-/* ---------- New order sound helper (Web Audio beep) ---------- */
+/* ---------- Loud triple beep on new order ---------- */
 
 function playNewOrderSound() {
   if (!kitchenSoundEnabled) {
@@ -120,24 +148,31 @@ function playNewOrderSound() {
   }
 
   const ctx = kitchenAudioCtx;
-
-  const duration = 0.25;
   const now = ctx.currentTime;
 
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
+  const beepCount = 3;
+  const beepDuration = 0.3; // seconds
+  const gap = 0.1;
 
-  osc.type = 'sine';
-  osc.frequency.value = 880;
+  for (let i = 0; i < beepCount; i++) {
+    const start = now + i * (beepDuration + gap);
+    const end = start + beepDuration;
 
-  gain.gain.setValueAtTime(0.2, now);
-  gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
 
-  osc.connect(gain);
-  gain.connect(ctx.destination);
+    osc.type = 'square';
+    osc.frequency.value = 1000; // 1 kHz
 
-  osc.start(now);
-  osc.stop(now + duration);
+    gain.gain.setValueAtTime(0.8, start);
+    gain.gain.exponentialRampToValueAtTime(0.001, end);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(start);
+    osc.stop(end);
+  }
 }
 
 /* =============== Kitchen Orders List =============== */
@@ -163,13 +198,11 @@ async function initKitchenOrdersPage() {
 
   if (window.AppSocket) {
     AppSocket.onNewOrderForKitchen(() => {
-      console.log('[Kitchen] newOrder received → reloading list (socket)');
       playNewOrderSound();
       loadKitchenOrders(currentFilter, { loadingEl, emptyEl, listEl }, true);
     });
 
     AppSocket.onOrderStatusUpdated(() => {
-      console.log('[Kitchen] status updated → reloading list (socket)');
       loadKitchenOrders(currentFilter, { loadingEl, emptyEl, listEl }, true);
     });
 
@@ -177,18 +210,12 @@ async function initKitchenOrdersPage() {
   }
 
   setInterval(() => {
-    console.log('[Kitchen] polling refresh for filter:', currentFilter);
     loadKitchenOrders(currentFilter, { loadingEl, emptyEl, listEl }, false);
-  }, 10000);
+  }, 30000);
 
   loadKitchenOrders(currentFilter, { loadingEl, emptyEl, listEl }, false);
 }
 
-/**
- * @param {string} filter 'active' | 'new' | 'completed'
- * @param {object} els  { loadingEl, emptyEl, listEl }
- * @param {boolean} fromSocket  true agar socket event se call hua ho
- */
 async function loadKitchenOrders(filter, els, fromSocket) {
   const { loadingEl, emptyEl, listEl } = els;
 
@@ -202,12 +229,6 @@ async function loadKitchenOrders(filter, els, fromSocket) {
 
     if (filter === 'active' && !fromSocket) {
       if (lastActiveCount !== null && orders.length > lastActiveCount) {
-        console.log(
-          '[Kitchen] polling detected new active order(s). Old:',
-          lastActiveCount,
-          'New:',
-          orders.length
-        );
         playNewOrderSound();
       }
       lastActiveCount = orders.length;
@@ -228,13 +249,26 @@ async function loadKitchenOrders(filter, els, fromSocket) {
 
       const itemsText = (order.items || [])
         .map(it => {
-          const base = `${it.productName} (${it.size?.name || ''}) × ${it.quantity}`;
+          const sizeName = it.size?.name || '';
+          const base = `${it.productName} (${sizeName}) × ${it.quantity}`;
           const addOnPart = formatAddOns(it.addOns);
-          return addOnPart === 'No add-ons'
-            ? base
-            : `${base} | ${addOnPart}`;
+          const comboPart = formatComboItems(
+            it.comboItems,
+            it.comboSelections
+          );
+          const parts = [base];
+
+          if (comboPart) parts.push(`Combo: ${comboPart}`);
+          if (addOnPart !== 'No add-ons') parts.push(addOnPart);
+
+          return parts.join(' | ');
         })
         .join('; ');
+
+      const shortAddress =
+        addrType === 'DELIVERY'
+          ? (order.delivery?.address || '').slice(0, 40)
+          : '';
 
       card.innerHTML = `
         <div class="order-card-main">
@@ -246,6 +280,7 @@ async function loadKitchenOrders(filter, els, fromSocket) {
             </div>
             <div class="order-meta">
               ${addrType === 'DELIVERY' ? 'Delivery' : 'Pickup'}
+              ${shortAddress ? ` - ${shortAddress}...` : ''}
             </div>
             <div class="order-meta">Items: ${itemsText}</div>
           </div>
@@ -266,6 +301,9 @@ async function loadKitchenOrders(filter, els, fromSocket) {
               <button class="btn btn-secondary order-view-btn">
                 Details
               </button>
+              <button class="btn btn-secondary kitchen-print-btn">
+                Print KOT
+              </button>
               <button class="btn btn-danger kitchen-delete-btn">
                 Delete
               </button>
@@ -274,7 +312,6 @@ async function loadKitchenOrders(filter, els, fromSocket) {
         </div>
       `;
 
-      // Status buttons
       card.querySelectorAll('.kitchen-status-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           const newStatus = btn.dataset.status;
@@ -284,7 +321,6 @@ async function loadKitchenOrders(filter, els, fromSocket) {
         });
       });
 
-      // Details button
       card
         .querySelector('.order-view-btn')
         .addEventListener('click', () => {
@@ -292,11 +328,16 @@ async function loadKitchenOrders(filter, els, fromSocket) {
           const target = `order-details.html?id=${encodeURIComponent(
             order._id
           )}`;
-          console.log('Kitchen navigating to order details:', target);
           window.location.href = target;
         });
 
-      // Delete button
+      const printBtn = card.querySelector('.kitchen-print-btn');
+      if (printBtn) {
+        printBtn.addEventListener('click', () => {
+          printKitchenKot(order);
+        });
+      }
+
       const deleteBtn = card.querySelector('.kitchen-delete-btn');
       if (deleteBtn) {
         deleteBtn.addEventListener('click', () => {
@@ -362,7 +403,6 @@ async function updateOrderStatus(id, newStatus, onDone) {
   }
 }
 
-// Delete helper
 async function deleteOrder(id, onDone) {
   if (
     !confirm(
@@ -381,6 +421,71 @@ async function deleteOrder(id, onDone) {
     console.error('deleteOrder error', err);
     alert(err.message || 'Unable to delete the order.');
   }
+}
+
+/* ---------- SIMPLE KOT PRINT (TEXT-BASED) ---------- */
+
+function printKitchenKot(order) {
+  const win = window.open('', '_blank', 'width=400,height=600');
+  if (!win) {
+    alert('Popup blocked. Please allow popups to print KOT.');
+    return;
+  }
+
+  const lines = [];
+
+  lines.push('*** KITCHEN ORDER TICKET ***');
+  lines.push('KOT # ' + String(order._id).slice(-6));
+  lines.push('');
+
+  lines.push('Branch: ' + (order.outletName || 'Perfect Pizza'));
+  lines.push('Time:   ' + formatDateTime(order.createdAt));
+  lines.push('Customer: ' + (order.user?.name || 'Walk-in'));
+  lines.push(
+    'Type: ' +
+      (order.delivery?.deliveryType === 'PICKUP'
+        ? 'PICKUP'
+        : 'DELIVERY')
+  );
+
+  if (order.delivery?.deliveryType === 'DELIVERY') {
+    lines.push('Address: ' + (order.delivery.address || ''));
+    if (order.delivery.landmark) {
+      lines.push('Landmark: ' + order.delivery.landmark);
+    }
+  }
+
+  lines.push('');
+  lines.push('ITEMS:');
+  (order.items || []).forEach(it => {
+    const sizeName = it.size?.name || '';
+    lines.push(
+      `- ${it.productName} (${sizeName}) × ${it.quantity}`
+    );
+
+    const comboText = formatComboItems(
+      it.comboItems,
+      it.comboSelections
+    );
+    if (comboText) {
+      lines.push('    Combo: ' + comboText);
+    }
+
+    const addOnText = formatAddOns(it.addOns);
+    if (addOnText !== 'No add-ons') {
+      lines.push('    Add-ons: ' + addOnText);
+    }
+  });
+
+  lines.push('');
+  lines.push('*** END OF KITCHEN TICKET ***');
+
+  win.document.write(
+    '<pre style="font-family: monospace; font-size: 12px; white-space: pre-wrap;">' +
+      lines.join('\n') +
+      '</pre>'
+  );
+  win.document.close();
 }
 
 /* =============== Kitchen Order Detail =============== */
@@ -421,17 +526,104 @@ async function initKitchenOrderDetailPage() {
 
     const itemsHtml = (order.items || [])
       .map(it => {
-        const addOnsText = formatAddOns(it.addOns);
+        const sizeName = it.size?.name || '';
+        const crustName = it.crust?.name || '';
+
+        let comboItems = Array.isArray(it.comboItems) ? it.comboItems : [];
+        let addOns = Array.isArray(it.addOns) ? it.addOns : [];
+        const comboSelections = Array.isArray(it.comboSelections)
+          ? it.comboSelections
+          : [];
+
+        // Purana fallback: agar dono empty hain aur category COMBO hai,
+        // to addOns ko comboItems treat karo
+        if (
+          !comboSelections.length &&
+          !comboItems.length &&
+          it.category === 'COMBO'
+        ) {
+          comboItems = addOns;
+          addOns = [];
+        }
+
+        let comboBoxHtml = '';
+
+        if (comboSelections.length) {
+          // NEW: Combo details group-wise (Pizza, Side, Beverages...)
+          const lines = comboSelections
+            .map(cs => {
+              const title = cs.groupTitle || cs.groupKey || '';
+              const label = cs.label || '';
+              return `<li>${
+                title ? `<strong>${title}:</strong> ` : ''
+              }${label}</li>`;
+            })
+            .join('');
+
+          comboBoxHtml = `
+            <div class="kitchen-detail-box">
+              <div class="kitchen-detail-box-title">Combo details:</div>
+              <ul class="kitchen-detail-list">
+                ${lines}
+              </ul>
+            </div>
+          `;
+        } else if (comboItems.length) {
+          // Legacy combo items list
+          const comboLines = comboItems
+            .map(ci => {
+              const q = Number(ci.quantity || 1);
+              return `<li>${ci.name}${q > 1 ? ` × ${q}` : ''}</li>`;
+            })
+            .join('');
+
+          comboBoxHtml = `
+            <div class="kitchen-detail-box">
+              <div class="kitchen-detail-box-title">Combo items:</div>
+              <ul class="kitchen-detail-list">
+                ${comboLines}
+              </ul>
+            </div>
+          `;
+        }
+
+        const addOnLines = addOns.length
+          ? addOns
+              .map(a => {
+                const q = Number(a.quantity || 1);
+                return `<li>${a.name}${q > 1 ? ` × ${q}` : ''}</li>`;
+              })
+              .join('')
+          : '<li>No add-ons</li>';
+
         return `
-          <li>
-            <strong>${it.productName}</strong> 
-            (${it.size?.name || ''}, ${it.crust?.name || ''}) 
-            × ${it.quantity}
-            <br />
-            <span style="font-size:0.8rem;color:#666">
-              Add-ons: ${addOnsText}
-            </span>
-          </li>
+          <article class="kitchen-detail-item">
+            <div class="kitchen-detail-item-header">
+              <strong>${it.productName}</strong>
+              <span class="kitchen-detail-item-qty">× ${it.quantity}</span>
+            </div>
+            <div class="kitchen-detail-item-sub">
+              ${
+                sizeName
+                  ? `Size: <strong>${sizeName}</strong>`
+                  : ''
+              }
+              ${
+                crustName
+                  ? ` | Crust: <strong>${crustName}</strong>`
+                  : ''
+              }
+            </div>
+
+            ${comboBoxHtml}
+
+            <div class="kitchen-detail-box">
+              <div class="kitchen-detail-box-title">Add-ons:</div>
+              <ul class="kitchen-detail-list">
+                ${addOnLines}
+              </ul>
+            </div>
+          </article>
         `;
       })
       .join('');
@@ -446,20 +638,67 @@ async function initKitchenOrderDetailPage() {
     const deliveryType =
       order.delivery?.deliveryType === 'PICKUP' ? 'Pickup' : 'Delivery';
 
+    let deliveryInfoHtml = '';
+    if (order.delivery?.deliveryType === 'DELIVERY') {
+      const addr = order.delivery.address || '';
+      const landmark = order.delivery.landmark || '';
+      deliveryInfoHtml = `
+        <p><strong>Delivery Address:</strong><br />
+          ${addr}<br />
+          <span style="font-size:0.85rem;color:#666;">
+            ${landmark || ''}
+          </span>
+        </p>
+      `;
+    } else {
+      deliveryInfoHtml = `
+        <p><strong>Pickup:</strong> Customer will collect from outlet.</p>
+      `;
+    }
+
+    const placedAt = order.placedAt || order.createdAt;
+    const bakingAt = order.bakingAt;
+    const outForDeliveryAt = order.outForDeliveryAt;
+    const deliveredAt = order.deliveredAt;
+
+    const timelineHtml = `
+      <h3>Status Timeline</h3>
+      <ul class="status-timeline">
+        <li><strong>Placed:</strong> ${
+          placedAt ? formatDateTime(placedAt) : '-'
+        }</li>
+        <li><strong>Baking:</strong> ${
+          bakingAt ? formatDateTime(bakingAt) : '-'
+        }</li>
+        <li><strong>Out for Delivery:</strong> ${
+          outForDeliveryAt ? formatDateTime(outForDeliveryAt) : '-'
+        }</li>
+        <li><strong>Delivered:</strong> ${
+          deliveredAt ? formatDateTime(deliveredAt) : '-'
+        }</li>
+      </ul>
+    `;
+
     container.innerHTML = `
       <h2>Order #${String(order._id).slice(-6)}</h2>
       <p>${formatDateTime(order.createdAt)}</p>
       <p>Customer: ${order.user?.name || ''} (${order.user?.contact || ''})</p>
       <p>Order Type: ${deliveryType}</p>
+
+      ${deliveryInfoHtml}
+
       <p>Status: ${order.status}</p>
       <p>
         <strong>Payment:</strong> ${paymentType} 
         <span style="font-size:0.9rem; color:#555;">(${paymentStatus})</span>
       </p>
+
+      ${timelineHtml}
+
       <p><strong>Total Amount:</strong> ${formatCurrency(order.grandTotal)}</p>
 
       <h3>Items</h3>
-      <ul>${itemsHtml}</ul>
+      ${itemsHtml}
     `;
   } catch (err) {
     console.error('Kitchen order detail error', err);

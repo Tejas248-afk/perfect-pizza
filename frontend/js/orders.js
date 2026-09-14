@@ -39,7 +39,6 @@ async function initOrdersListPage() {
     return;
   }
 
-  // Socket.IO – status update aate hi list reload
   if (window.AppSocket && typeof AppSocket.onOrderStatusUpdated === 'function') {
     AppSocket.onOrderStatusUpdated(() => {
       console.log('[Customer] status updated → refresh orders list');
@@ -104,7 +103,6 @@ async function loadOrdersList() {
         </div>
       `;
 
-      // Details
       card
         .querySelector('.order-view-btn')
         .addEventListener('click', () => {
@@ -112,11 +110,9 @@ async function loadOrdersList() {
           const target = `order-details.html?id=${encodeURIComponent(
             order._id
           )}`;
-          console.log('Navigating to order details:', target);
           window.location.href = target;
         });
 
-      // Delete
       const deleteBtn = card.querySelector('.order-delete-btn');
       if (deleteBtn) {
         deleteBtn.addEventListener('click', () => {
@@ -138,13 +134,7 @@ async function loadOrdersList() {
 }
 
 async function deleteMyOrder(id, onDone) {
-  if (
-    !confirm(
-      `Are you sure you want to permanently delete order ${String(id).slice(
-        -6
-      )}?`
-    )
-  ) {
+  if (!confirm(`Are you sure you want to permanently delete order ${String(id).slice(-6)}?`)) {
     return;
   }
 
@@ -292,19 +282,41 @@ function renderOrderDetail(order, container) {
   const createdAt = formatDateTime(order.createdAt);
   const deliveryType = order.delivery?.deliveryType || 'DELIVERY';
   const { steps, activeIndex } = getTimelineSteps(order.status, deliveryType);
+  
   const isCancelled = order.status === 'CANCELLED';
 
+  // ==== ITEMS WITH COMBO FALLBACK ====
   const itemsHtml = (order.items || [])
     .map(item => {
+      let comboItems = Array.isArray(item.comboItems) ? item.comboItems : [];
+      let addOns = Array.isArray(item.addOns) ? item.addOns : [];
+
+      // Agar comboItems khaali hain aur category COMBO hai,
+      // to addOns ko combo maan lo, addOns list khaali rakh do
+      if (!comboItems.length && item.category === 'COMBO') {
+        comboItems = addOns;
+        addOns = [];
+      }
+
       const addOnsText =
-        (item.addOns || []).length > 0
-          ? item.addOns
+        addOns.length > 0
+          ? addOns
               .map(
                 a =>
                   `${a.name}${(a.quantity || 1) > 1 ? ` × ${a.quantity}` : ''}`
               )
               .join(', ')
           : 'No add-ons';
+
+      const comboText =
+        comboItems.length > 0
+          ? comboItems
+              .map(
+                ci =>
+                  `${ci.name}${(ci.quantity || 1) > 1 ? ` × ${ci.quantity}` : ''}`
+              )
+              .join(', ')
+          : '';
 
       return `
         <div class="order-item-row">
@@ -318,6 +330,13 @@ function renderOrderDetail(order, container) {
             <div class="order-item-meta">
               ${item.size?.name || ''} • ${item.crust?.name || ''}
             </div>
+            ${
+              comboText
+                ? `<div class="order-item-meta">
+                     Combo items: ${comboText}
+                   </div>`
+                : ''
+            }
             <div class="order-item-meta">Add-ons: ${addOnsText}</div>
           </div>
           <div class="order-item-price">

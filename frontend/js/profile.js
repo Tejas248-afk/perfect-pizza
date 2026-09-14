@@ -1,9 +1,20 @@
+// js/profile.js
+
 document.addEventListener('DOMContentLoaded', () => {
   if (typeof setupAuthNav === 'function') {
     setupAuthNav();
   }
   initProfilePage();
 });
+
+function formatDateTime(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleString('en-IN', {
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  });
+}
 
 async function initProfilePage() {
   const token = Api.getToken && Api.getToken();
@@ -69,6 +80,7 @@ async function initProfilePage() {
     const listEl = document.getElementById('profile-orders-list');
     const emptyEl = document.getElementById('profile-orders-empty');
     const loadingEl = document.getElementById('profile-orders-loading');
+
     const ordersRes = await Api.get('/orders/my');
     const orders = ordersRes.orders || [];
 
@@ -86,15 +98,13 @@ async function initProfilePage() {
       const card = document.createElement('article');
       card.className = 'order-card';
 
-      const createdAt = new Date(order.createdAt).toLocaleString('en-IN', {
-        dateStyle: 'medium',
-        timeStyle: 'short'
-      });
+      const createdAt = formatDateTime(order.createdAt);
+      const displayId = String(order._id).slice(-6);
 
       card.innerHTML = `
         <div class="order-card-main">
           <div>
-            <div class="order-id">Order #${String(order._id).slice(-6)}</div>
+            <div class="order-id">Order #${displayId}</div>
             <div class="order-meta">${createdAt}</div>
             <div class="order-meta">Status: ${order.status}</div>
           </div>

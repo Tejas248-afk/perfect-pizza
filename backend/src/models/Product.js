@@ -1,3 +1,4 @@
+// src/models/Product.js
 const mongoose = require('mongoose');
 
 const { Schema } = mongoose;
@@ -96,6 +97,23 @@ const addOnSchema = new Schema(
   { _id: false }
 );
 
+// Combo ke andar ke items (sirf information ke liye)
+const comboSubItemSchema = new Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    quantity: {
+      type: Number,
+      default: 1,
+      min: 1
+    }
+  },
+  { _id: false }
+);
+
 const productSchema = new Schema(
   {
     name: {
@@ -125,19 +143,22 @@ const productSchema = new Schema(
       type: Boolean,
       default: true
     },
-    // NEW: time-based availability window (0–23, optional)
+
+    // time-based availability (0–23, optional)
     availableFromHour: {
       type: Number,
       min: 0,
       max: 23
-      // null/undefined => no limit (0–24)
     },
     availableToHour: {
       type: Number,
       min: 0,
       max: 23
-      // null/undefined => no limit (0–24)
     },
+
+    // Agar ye COMBO product hai, to uske andar ke items yahan define kar sakte ho
+    // e.g. [{ name: "Veg Burger", quantity: 1 }, { name: "Cheese Corn Pizza (Medium)", quantity: 1 }]
+    comboItems: [comboSubItemSchema],
 
     sizes: [sizeSchema],
     crusts: [crustSchema],

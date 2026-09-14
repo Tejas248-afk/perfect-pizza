@@ -62,8 +62,7 @@ async function resolveOutlet(requestOutletId) {
 }
 
 function ensureStoreOpen(outlet) {
-  // India time ki jagah local time use kiya gaya tha,
-  // chaaho to yahan bhi Asia/Kolkata convert kar sakte ho.
+  // Local time (optional: convert to IST if chaho)
   const now = new Date();
   const hour = now.getHours();
 
@@ -100,7 +99,6 @@ exports.initPayuPayment = async (req, res) => {
     const outlet = await resolveOutlet(value.outletId);
     ensureStoreOpen(outlet);
 
-    // Order preview (subtotal, delivery, discount, grandTotal, etc.)
     const preview = await buildOrderPreview({
       user: req.user,
       outlet,
@@ -109,11 +107,7 @@ exports.initPayuPayment = async (req, res) => {
 
     const txnid = generateTxnId();
 
-    // 1. DB me order create karo
-    // IMPORTANT CHANGE:
-    // Pehle yahan status: 'PLACED' tha, jis se bina payment ke bhi
-    // kitchen / my orders me order dikhta tha.
-    // Ab hum yahan 'PENDING_PAYMENT' rakh rahe hain.
+    // Order create with PENDING_PAYMENT
     const order = await Order.create({
       user: preview.userId,
       outlet: outlet._id,
@@ -134,13 +128,12 @@ exports.initPayuPayment = async (req, res) => {
         paymentType: 'PAYU',
         paymentStatus: 'PENDING',
         paymentReference: '',
-        payuOrderId: txnid, // txnid se map kar rahe
+        payuOrderId: txnid,
         payuTxnId: ''
       },
       status: 'PENDING_PAYMENT'
     });
 
-    // 2. PayU ke liye params banao
     const amount = Number(preview.grandTotal || 0).toFixed(2);
     const productinfo = 'Perfect Pizza Order';
 
@@ -160,11 +153,8 @@ exports.initPayuPayment = async (req, res) => {
       phone,
       surl: callbackUrl,
       furl: callbackUrl
-      // udf1..udf10 blank rahenge
     };
 
-    // --------- Request hash (standard, no UDFs) ---------
-    // key|txnid|amount|productinfo|firstname|email|||||||||||salt
     const hashString =
       PAYU_KEY +
       '|' +
@@ -221,8 +211,7 @@ exports.handlePayuCallback = async (req, res) => {
       additionalCharges
     } = req.body;
 
-    // 1) Hash verify (standard response formula, no UDFs)
-    // hash = sha512( [additionalCharges|]salt|status|||||||||||email|firstname|productinfo|amount|txnid|key )
+    // 1) Hash verify
     let hashString =
       PAYU_SALT +
       '|' +
@@ -254,7 +243,7 @@ exports.handlePayuCallback = async (req, res) => {
       return res.status(400).send('Hash mismatch');
     }
 
-    // 2) Order fetch: txnid se (kyunki payuOrderId = txnid)
+    // 2) Order fetch
     const order = await Order.findOne({
       'payment.payuOrderId': txnid
     }).populate('user', 'rewardCoins name contact');
@@ -272,9 +261,13 @@ exports.handlePayuCallback = async (req, res) => {
     if (status === 'success') {
       order.payment.paymentStatus = 'SUCCESS';
 
-      // IMPORTANT: status ko ab yahan PLACED kar rahe hain.
-      // Isi moment se kitchen & customer list me order dikhega.
+      // Ab order confirmed
       order.status = 'PLACED';
+
+      // Online orders ke liye placedAt yahi par set
+      if (!order.placedAt) {
+        order.placedAt = new Date();
+      }
 
       // Rewards: sirf success pe adjust
       try {
@@ -297,12 +290,14 @@ exports.handlePayuCallback = async (req, res) => {
       // Abhi payment success hai, abhi order kitchen ko dikhaao
       emitNewOrder(order);
 
+      const displayOrderId = order._id;
+
       return res.send(`
         <html>
           <body style="font-family: sans-serif; text-align:center; padding:40px;">
             <h2>Payment Successful ✅</h2>
             <p>Thank you for your order!</p>
-            <p><strong>Order ID:</strong> ${order._id}</p>
+            <p><strong>Order ID:</strong> ${displayOrderId}</p>
             <p><strong>Transaction ID:</strong> ${mihpayid || ''}</p>
             <a href="/my-orders.html">Go to My Orders</a>
           </body>
@@ -311,6 +306,9 @@ exports.handlePayuCallback = async (req, res) => {
     } else {
       order.payment.paymentStatus = 'FAILED';
       order.status = 'CANCELLED';
+      if (!order.cancelledAt) {
+        order.cancelledAt = new Date();
+      }
       await order.save();
 
       return res.send(`
@@ -325,6 +323,8 @@ exports.handlePayuCallback = async (req, res) => {
     }
   } catch (err) {
     console.error('handlePayuCallback error:', err);
-    return res.status(500).send('Something went wrong while processing payment.');
+    return res
+      .status(500)
+      .send('Something went wrong while processing payment.');
   }
 };

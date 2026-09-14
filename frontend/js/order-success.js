@@ -1,3 +1,5 @@
+// js/order_success.js
+
 document.addEventListener('DOMContentLoaded', () => {
   if (typeof setupAuthNav === 'function') {
     setupAuthNav();
@@ -8,6 +10,15 @@ document.addEventListener('DOMContentLoaded', () => {
 function getQueryParam(name) {
   const params = new URLSearchParams(window.location.search);
   return params.get(name);
+}
+
+function formatDateTime(iso) {
+  if (!iso) return '-';
+  const d = new Date(iso);
+  return d.toLocaleString('en-IN', {
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  });
 }
 
 async function loadOrderAndRender() {
@@ -42,6 +53,12 @@ function renderInvoice(order) {
     timeStyle: 'short'
   });
 
+  // Status time fields (backend se aa rahe hain)
+  const placedAt = order.placedAt || order.createdAt;
+  const bakingAt = order.bakingAt;
+  const outForDeliveryAt = order.outForDeliveryAt;
+  const deliveredAt = order.deliveredAt;
+
   const itemsRows = (order.items || [])
     .map(
       item => `
@@ -75,6 +92,27 @@ function renderInvoice(order) {
 
   const totalOfferDiscount = offerDiscount + couponDiscount;
 
+  const paymentType = order.payment?.paymentType || 'COD';
+  const paymentStatus = order.payment?.paymentStatus || 'PENDING';
+
+  const timelineHtml = `
+    <div class="invoice-timeline">
+      <h3>Status Timeline</h3>
+      <ul>
+        <li><strong>Placed:</strong> ${formatDateTime(placedAt)}</li>
+        <li><strong>Baking:</strong> ${
+          bakingAt ? formatDateTime(bakingAt) : '-'
+        }</li>
+        <li><strong>Out for Delivery:</strong> ${
+          outForDeliveryAt ? formatDateTime(outForDeliveryAt) : '-'
+        }</li>
+        <li><strong>Delivered:</strong> ${
+          deliveredAt ? formatDateTime(deliveredAt) : '-'
+        }</li>
+      </ul>
+    </div>
+  `;
+
   invoiceEl.innerHTML = `
     <div class="invoice-header">
       <div>
@@ -85,12 +123,14 @@ function renderInvoice(order) {
       <div style="text-align:right;">
         <p><strong>Order ID:</strong> ${order._id}</p>
         <p><strong>Date:</strong> ${dateStr}</p>
-        <p><strong>Payment:</strong> ${order.payment?.paymentType || 'COD'} (${order.payment?.paymentStatus || 'PENDING'})</p>
+        <p><strong>Payment:</strong> ${paymentType} (${paymentStatus})</p>
         <p><strong>Status:</strong> ${order.status}</p>
       </div>
     </div>
 
     <hr />
+
+    ${timelineHtml}
 
     <table class="invoice-items">
       <thead>
@@ -132,11 +172,15 @@ function renderInvoice(order) {
         </div>
         <div class="summary-row">
           <span>Offer discount</span>
-          <strong>${totalOfferDiscount ? `-₹${totalOfferDiscount.toFixed(0)}` : '₹0'}</strong>
+          <strong>${totalOfferDiscount ? `-₹${totalOfferDiscount.toFixed(
+            0
+          )}` : '₹0'}</strong>
         </div>
         <div class="summary-row">
           <span>Reward discount</span>
-          <strong>${rewardDiscount ? `-₹${rewardDiscount.toFixed(0)}` : '₹0'}</strong>
+          <strong>${rewardDiscount ? `-₹${rewardDiscount.toFixed(
+            0
+          )}` : '₹0'}</strong>
         </div>
         <div class="summary-row">
           <span>Delivery fee</span>

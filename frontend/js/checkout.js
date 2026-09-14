@@ -124,6 +124,25 @@ function renderCheckoutItems(items) {
           .join(', ')
       : 'No add-ons';
 
+    // Combo detail text (Pizza: X, Side: Y, Beverages: Z ...)
+    const comboText = item.comboSelections
+      ? (Array.isArray(item.comboSelections)
+          ? item.comboSelections
+          : Object.values(item.comboSelections)
+        )
+          .filter(Boolean)
+          .map(sel => {
+            const title = sel.groupTitle || sel.groupKey || '';
+            return title ? `${title}: ${sel.label}` : sel.label;
+          })
+          .filter(Boolean)
+          .join(' • ')
+      : '';
+
+    const comboHtml = comboText
+      ? `<div class="checkout-item-combo">${comboText}</div>`
+      : '';
+
     const row = document.createElement('div');
     row.className = 'checkout-item';
 
@@ -139,6 +158,7 @@ function renderCheckoutItems(items) {
           <div class="checkout-item-meta">
             ${item.size?.name || ''} • ${item.crust?.name || ''}
           </div>
+          ${comboHtml}
           <div class="checkout-item-addons">${addOnsText}</div>
         </div>
         <div class="checkout-item-price">
@@ -154,6 +174,45 @@ function renderCheckoutItems(items) {
   });
 
   subtotalEl.textContent = `₹${subtotal.toFixed(0)}`;
+}
+
+// ---------- Helper: map Cart item (including combo) to backend payload ----------
+function mapCartItemToBackend(item) {
+  const rawComboSelections = item.comboSelections || null;
+  let comboSelections = [];
+
+  if (Array.isArray(rawComboSelections)) {
+    comboSelections = rawComboSelections
+      .filter(Boolean)
+      .map(sel => ({
+        groupKey: sel.groupKey || '',
+        groupTitle: sel.groupTitle || sel.groupKey || '',
+        label: sel.label || '',
+        extraPrice: Number(sel.extraPrice || 0)
+      }));
+  } else if (rawComboSelections && typeof rawComboSelections === 'object') {
+    comboSelections = Object.values(rawComboSelections)
+      .filter(Boolean)
+      .map(sel => ({
+        groupKey: sel.groupKey || '',
+        groupTitle: sel.groupTitle || sel.groupKey || '',
+        label: sel.label || '',
+        extraPrice: Number(sel.extraPrice || 0)
+      }));
+  }
+
+  return {
+    productId: item.productId,
+    size: item.size?.name,
+    crust: item.crust?.name,
+    quantity: item.quantity,
+    addOns: (item.addOns || []).map(a => ({
+      name: a.name,
+      quantity: a.quantity || 1
+    })),
+    // NEW: full combo selections so backend / kitchen panel me detail aa sake
+    comboSelections
+  };
 }
 
 async function loadRewardsAndPreview() {
@@ -235,16 +294,8 @@ async function refreshOrderPreview() {
     return;
   }
 
-  const itemsForBackend = cartItems.map(item => ({
-    productId: item.productId,
-    size: item.size?.name,
-    crust: item.crust?.name,
-    quantity: item.quantity,
-    addOns: (item.addOns || []).map(a => ({
-      name: a.name,
-      quantity: a.quantity || 1
-    }))
-  }));
+  // IMPORTANT: comboSelections ko bhi backend ko bhej rahe hain
+  const itemsForBackend = cartItems.map(mapCartItemToBackend);
 
   const payload = {
     outletId,
@@ -264,7 +315,7 @@ async function refreshOrderPreview() {
     updateCheckoutSummary(res.preview);
   } catch (err) {
     console.error('Preview error', err);
-    if (err.status === 400) {
+    if (err.status === 400 && err.message) {
       alert(err.message);
     }
     updateCheckoutSummary(null);
@@ -362,13 +413,11 @@ function updateCheckoutSummary(previewOrder) {
 
   deliveryEl.textContent = `₹${deliveryFee.toFixed(0)}`;
 
-  // Offer discount = automatic offers (BOGO etc.) + coupon discount
   const totalOfferDiscount = offerDiscount + couponDiscount;
   offerEl.textContent = totalOfferDiscount
     ? `-₹${totalOfferDiscount.toFixed(0)}`
     : '₹0';
 
-  // Reward discount row = reward coins discount only
   discountEl.textContent = rewardDiscount
     ? `-₹${rewardDiscount.toFixed(0)}`
     : '₹0';
@@ -422,16 +471,8 @@ async function handlePlaceOrder() {
     }
   }
 
-  const itemsForBackend = cartItems.map(item => ({
-    productId: item.productId,
-    size: item.size?.name,
-    crust: item.crust?.name,
-    quantity: item.quantity,
-    addOns: (item.addOns || []).map(a => ({
-      name: a.name,
-      quantity: a.quantity || 1
-    }))
-  }));
+  // IMPORTANT: comboSelections bhi include kiya hai
+  const itemsForBackend = cartItems.map(mapCartItemToBackend);
 
   const outletId = localStorage.getItem('pp_outlet_id') || null;
 
@@ -495,6 +536,9 @@ async function handlePlaceOrder() {
 
     document.body.appendChild(form);
 
+    // Cart ko clear kar do, kyunki order backend me PENDING_PAYMENT
+    // state me create ho chuka hai. Payment success hone par callback
+    // usko PLACED karega.
     Cart.clear();
 
     form.submit();

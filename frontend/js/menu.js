@@ -15,6 +15,11 @@ function escapeHtml(value) {
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#039;');
 }
+// YAHAN ADD KARO
+function safeNumber(value, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
 
 function getOptionPriceForSize(option, sizeName) {
   const priceEntry = (option.prices || []).find(
@@ -23,6 +28,8 @@ function getOptionPriceForSize(option, sizeName) {
 
   return priceEntry ? Number(priceEntry.price) : null;
 }
+
+
 
 /* ---------- Static combo config (legacy frontend only) ---------- */
 /* NOTE:

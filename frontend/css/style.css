@@ -1974,3 +1974,14 @@ textarea.input:focus {
   padding-top: 0.4rem;
   font-size: 1.05rem;
 }
+/* Perfect Pizza logo image */
+.nav-logo-img {
+  height: 40px;
+  display: block;
+}
+
+@media (max-width: 480px) {
+  .nav-logo-img {
+    height: 32px;
+  }
+}

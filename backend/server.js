@@ -1,3 +1,4 @@
+// server.js
 require('dotenv').config();
 const express = require('express');
 const http = require('http');
@@ -5,7 +6,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
-const path = require('path'); // <-- ADDED
+const path = require('path');
 
 const connectDB = require('./src/config/db');
 
@@ -15,7 +16,7 @@ const orderRoutes = require('./src/routes/orderRoutes');
 const rewardRoutes = require('./src/routes/rewardRoutes');
 const adminRoutes = require('./src/routes/adminRoutes');
 const productRoutes = require('./src/routes/productRoutes');
-const couponPublicRoutes = require('./src/routes/couponPublicRoutes'); // ✅ ALIAS ROUTE HERE
+const couponPublicRoutes = require('./src/routes/couponPublicRoutes');
 
 // PayU controller + auth middleware
 const paymentController = require('./src/controllers/paymentController');
@@ -46,7 +47,8 @@ app.use(
     origin: function (origin, callback) {
       if (!origin) return callback(null, true); // Postman, curl etc.
       if (allowedOrigins.includes(origin)) return callback(null, true);
-      return callback(null, true); // dev ke liye open
+      // Dev ke liye open
+      return callback(null, true);
     },
     credentials: true
   })
@@ -58,14 +60,35 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Logging
 app.use(morgan('dev'));
 
-// Rate limiter for /api
+// ---------- Rate limiter for /api (with exceptions) ----------
 const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 1000,                // har IP ke liye 15 min me 1000 requests
   standardHeaders: true,
   legacyHeaders: false
 });
-app.use('/api', apiLimiter);
+
+// Kuch routes ko limiter se bahar rakhne ke liye custom wrapper
+app.use('/api', (req, res, next) => {
+  const path = req.path || '';
+
+  // Kitchen orders list → polling + socket
+  if (path.startsWith('/orders/kitchen')) {
+    return next();
+  }
+
+  // Single order detail (customer invoice / success page)
+  if (path.startsWith('/orders/') && req.method === 'GET') {
+    return next();
+  }
+
+  // Health check
+  if (path.startsWith('/health')) {
+    return next();
+  }
+
+  return apiLimiter(req, res, next);
+});
 
 /* ---------- MongoDB connect ---------- */
 connectDB();
