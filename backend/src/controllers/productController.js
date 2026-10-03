@@ -1,5 +1,8 @@
 // src/controllers/productController.js
+const mongoose = require('mongoose');
 const Product = require('../models/Product');
+const Order = require('../models/Order');
+const Category = require('../models/Category');
 
 /* ========== Public: customer side ========== */
 
@@ -9,12 +12,28 @@ const Product = require('../models/Product');
  */
 exports.getProducts = async (req, res) => {
   try {
-    // Sirf available products (isAvailable=true)
+    // 1) Active categories (if any)
+    const categories = await Category.find({ isActive: true })
+      .sort({ order: 1, name: 1 })
+      .lean();
+
+    const activeCategoryNames = new Set(
+      categories.map(c => (c.name || '').trim()).filter(Boolean)
+    );
+
+    const categoryOrderMap = new Map();
+    categories.forEach((c, idx) => {
+      const key = (c.name || '').trim();
+      if (!key) return;
+      categoryOrderMap.set(key, idx);
+    });
+
+    // 2) Available products
     let products = await Product.find({
       isAvailable: true
-    }).sort({ category: 1, name: 1 });
+    });
 
-    // Time-based filter (IST)
+    // 3) Time-based filter (IST) + dailyDisabledUntil
     const now = new Date();
     const istNow = new Date(
       now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })
@@ -22,13 +41,49 @@ exports.getProducts = async (req, res) => {
     const hour = istNow.getHours(); // 0–23
 
     products = products.filter(p => {
+      // "Stop today" check
+      if (p.dailyDisabledUntil && new Date(p.dailyDisabledUntil) > now) {
+        return false;
+      }
+
       const from =
         typeof p.availableFromHour === 'number' ? p.availableFromHour : 0;
       const to =
         typeof p.availableToHour === 'number' ? p.availableToHour : 24;
 
-      // inclusive start, exclusive end
-      return hour >= from && hour < to;
+      const okTime = hour >= from && hour < to;
+      if (!okTime) return false;
+
+      const cat = (p.category || '').trim();
+
+      // Agar koi active category defined hai, to sirf unhi categories ke products dikhao
+      if (activeCategoryNames.size > 0 && cat) {
+        return activeCategoryNames.has(cat);
+      }
+
+      return true;
+    });
+
+    // 4) Sort: category order -> displayOrder -> name
+    products.sort((a, b) => {
+      const ca = (a.category || '').trim();
+      const cb = (b.category || '').trim();
+
+      const oa = categoryOrderMap.has(ca)
+        ? categoryOrderMap.get(ca)
+        : Number.MAX_SAFE_INTEGER;
+      const ob = categoryOrderMap.has(cb)
+        ? categoryOrderMap.get(cb)
+        : Number.MAX_SAFE_INTEGER;
+
+      if (oa !== ob) return oa - ob;
+
+      const da = typeof a.displayOrder === 'number' ? a.displayOrder : 0;
+      const db = typeof b.displayOrder === 'number' ? b.displayOrder : 0;
+      if (da !== db) return da - db;
+
+      // same category, same displayOrder
+      return (a.name || '').localeCompare(b.name || '');
     });
 
     return res.json({ products });
@@ -54,6 +109,12 @@ exports.getProductById = async (req, res) => {
       return res.status(404).json({ message: 'Product not found' });
     }
 
+    // Optional: dailyDisabledUntil ko yahan bhi respect kar sakte ho
+    const now = new Date();
+    if (product.dailyDisabledUntil && product.dailyDisabledUntil > now) {
+      return res.status(404).json({ message: 'Product not available today' });
+    }
+
     return res.json({ product });
   } catch (err) {
     console.error('getProductById error:', err);
@@ -71,7 +132,11 @@ exports.getProductById = async (req, res) => {
  */
 exports.getAllProductsAdmin = async (req, res) => {
   try {
-    const products = await Product.find({}).sort({ createdAt: -1 });
+    const products = await Product.find({}).sort({
+      category: 1,
+      displayOrder: 1,
+      createdAt: -1
+    });
 
     return res.json({ products });
   } catch (err) {
@@ -108,9 +173,10 @@ exports.createProduct = async (req, res) => {
       body = req.body || {};
     }
 
-    // File aayi hai to image path set karo
+    // File aayi hai to absolute image URL set karo
     if (req.file) {
-      body.image = `/uploads/${req.file.filename}`;
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      body.image = `${baseUrl}/uploads/${req.file.filename}`;
     }
 
     // Multipart se boolean string aa sakte hain
@@ -147,6 +213,10 @@ exports.createProduct = async (req, res) => {
  *       data: JSON string (partial/full update)
  *       image: new image file
  *   - or simple JSON body (old behaviour)
+ *
+ * NOTE:
+ *   - body.comboConfig ko as-is DB me save kar diya jayega
+ *   - Product schema me comboConfig field defined hai to ye persist ho jayega
  */
 exports.updateProduct = async (req, res) => {
   try {
@@ -166,8 +236,10 @@ exports.updateProduct = async (req, res) => {
       body = req.body || {};
     }
 
+    // File aayi hai to absolute image URL set karo
     if (req.file) {
-      body.image = `/uploads/${req.file.filename}`;
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      body.image = `${baseUrl}/uploads/${req.file.filename}`;
     }
 
     if (typeof body.isVeg === 'string') {
@@ -249,5 +321,174 @@ exports.softDeleteProduct = async (req, res) => {
     return res
       .status(500)
       .json({ message: 'Unable to delete product right now.' });
+  }
+};
+
+/* ========== NEW ADMIN FEATURES ========== */
+
+/**
+ * POST /api/admin/products/reorder
+ * Body: { ids: [productId1, productId2, ...] }
+ * Drag & drop ke baad naya displayOrder save karta hai.
+ */
+exports.reorderProducts = async (req, res) => {
+  try {
+    const { ids } = req.body;
+
+    if (!Array.isArray(ids) || !ids.length) {
+      return res.status(400).json({ message: 'ids array is required.' });
+    }
+
+    const bulk = ids.map((id, index) => ({
+      updateOne: {
+        filter: { _id: id },
+        update: { displayOrder: index }
+      }
+    }));
+
+    await Product.bulkWrite(bulk);
+
+    return res.json({ message: 'Product order updated.' });
+  } catch (err) {
+    console.error('reorderProducts error:', err);
+    return res
+      .status(500)
+      .json({ message: 'Unable to reorder products right now.' });
+  }
+};
+
+/**
+ * PATCH /api/admin/products/:id/stock-today
+ * "Stop Today / Clear Today Block" toggle.
+ */
+const endOfTodayIST = () => {
+  const now = new Date();
+  const istNow = new Date(
+    now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })
+  );
+  istNow.setHours(23, 59, 59, 999);
+  return istNow;
+};
+
+exports.toggleStockToday = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    const now = new Date();
+
+    let newValue = null;
+    if (product.dailyDisabledUntil && product.dailyDisabledUntil > now) {
+      // Already blocked → clear
+      newValue = null;
+    } else {
+      // Not blocked → block till end of today (IST)
+      newValue = endOfTodayIST();
+    }
+
+    product.dailyDisabledUntil = newValue;
+    await product.save();
+
+    return res.json({
+      message:
+        newValue === null
+          ? 'Today stock block cleared.'
+          : 'Product disabled for today.',
+      dailyDisabledUntil: product.dailyDisabledUntil
+    });
+  } catch (err) {
+    console.error('toggleStockToday error:', err);
+    return res
+      .status(500)
+      .json({ message: 'Unable to update today stock status.' });
+  }
+};
+
+/**
+ * GET /api/admin/products/:id/stats?days=7
+ * Last N days ka mini stats (order count, qty, revenue, share%).
+ */
+exports.getProductStats = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const days = Number(req.query.days || 7);
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'Invalid product id' });
+    }
+
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+
+    const pipeline = [
+      {
+        $match: {
+          createdAt: { $gte: since },
+          status: { $ne: 'PENDING_PAYMENT' }
+        }
+      },
+      { $unwind: '$items' },
+      {
+        $match: {
+          'items.product': new mongoose.Types.ObjectId(id)
+        }
+      },
+      {
+        $group: {
+          _id: '$items.product',
+          quantity: { $sum: '$items.quantity' },
+          revenue: { $sum: '$items.itemTotal' },
+          orderIds: { $addToSet: '$_id' }
+        }
+      }
+    ];
+
+    const [row] = await Order.aggregate(pipeline);
+
+    if (!row) {
+      return res.json({
+        stats: {
+          days,
+          orderCount: 0,
+          quantity: 0,
+          revenue: 0,
+          avgOrderValue: 0,
+          orderSharePercent: 0
+        }
+      });
+    }
+
+    const orderCount = row.orderIds.length;
+    const quantity = row.quantity || 0;
+    const revenue = row.revenue || 0;
+
+    const totalOrders = await Order.countDocuments({
+      createdAt: { $gte: since },
+      status: { $ne: 'PENDING_PAYMENT' }
+    });
+
+    const avgOrderValue = orderCount ? revenue / orderCount : 0;
+    const orderSharePercent =
+      totalOrders > 0 ? (orderCount / totalOrders) * 100 : 0;
+
+    return res.json({
+      stats: {
+        days,
+        orderCount,
+        quantity,
+        revenue,
+        avgOrderValue,
+        orderSharePercent
+      }
+    });
+  } catch (err) {
+    console.error('getProductStats error', err);
+    return res
+      .status(500)
+      .json({ message: 'Unable to fetch product stats right now.' });
   }
 };

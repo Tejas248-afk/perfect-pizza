@@ -1,3 +1,5 @@
+// src/controllers/adminController.js
+const mongoose = require('mongoose');
 const Order = require('../models/Order');
 const User = require('../models/User');
 const DeliveryRule = require('../models/DeliveryRule');
@@ -187,7 +189,7 @@ exports.getCustomers = async (req, res) => {
   }
 };
 
-// Delivery Rules
+// ---------- Delivery Rules ----------
 
 // GET /api/admin/delivery-rules
 exports.getDeliveryRules = async (req, res) => {
@@ -250,5 +252,373 @@ exports.toggleDeliveryRule = async (req, res) => {
     return res
       .status(500)
       .json({ message: 'Unable to toggle delivery rule right now.' });
+  }
+};
+
+// ========== ANALYTICS HELPERS ==========
+
+function getDateRangeFromQuery(query) {
+  const { from, to } = query;
+
+  let fromDate = from ? new Date(from) : null;
+  let toDate = to ? new Date(to) : null;
+
+  // Default: last 7 days (including today)
+  if (!fromDate || Number.isNaN(fromDate.getTime())) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    toDate = toDate && !Number.isNaN(toDate.getTime()) ? toDate : new Date(today);
+    fromDate = new Date(toDate);
+    fromDate.setDate(fromDate.getDate() - 6);
+  }
+
+  if (!toDate || Number.isNaN(toDate.getTime())) {
+    toDate = new Date();
+  }
+
+  fromDate.setHours(0, 0, 0, 0);
+  toDate.setHours(0, 0, 0, 0);
+
+  if (fromDate > toDate) {
+    const tmp = fromDate;
+    fromDate = toDate;
+    toDate = tmp;
+  }
+
+  const toExclusive = new Date(toDate);
+  toExclusive.setDate(toExclusive.getDate() + 1);
+
+  return { fromDate, toDate, toExclusive };
+}
+
+// ========== ANALYTICS CONTROLLERS ==========
+
+// GET /api/admin/analytics/summary?from=YYYY-MM-DD&to=YYYY-MM-DD&outletId=
+exports.getAnalyticsSummary = async (req, res) => {
+  try {
+    const { fromDate, toExclusive } = getDateRangeFromQuery(req.query);
+    const { outletId } = req.query;
+
+    const matchBase = {
+      createdAt: { $gte: fromDate, $lt: toExclusive },
+      status: { $ne: 'PENDING_PAYMENT' }
+    };
+
+    if (outletId && mongoose.Types.ObjectId.isValid(outletId)) {
+      matchBase.outlet = new mongoose.Types.ObjectId(outletId);
+    }
+
+    // Total orders + total sales
+    const [summaryRow] = await Order.aggregate([
+      { $match: matchBase },
+      {
+        $group: {
+          _id: null,
+          totalOrders: { $sum: 1 },
+          totalSales: {
+            $sum: {
+              $cond: [
+                { $eq: ['$status', 'CANCELLED'] },
+                0,
+                '$grandTotal'
+              ]
+            }
+          }
+        }
+      }
+    ]);
+
+    const totalOrders = summaryRow ? summaryRow.totalOrders : 0;
+    const totalSales = summaryRow ? summaryRow.totalSales : 0;
+    const avgOrderValue = totalOrders ? totalSales / totalOrders : 0;
+
+    // Payment breakdown
+    const paymentAgg = await Order.aggregate([
+      { $match: matchBase },
+      {
+        $group: {
+          _id: '$payment.paymentType',
+          count: { $sum: 1 },
+          amount: {
+            $sum: {
+              $cond: [
+                { $eq: ['$status', 'CANCELLED'] },
+                0,
+                '$grandTotal'
+              ]
+            }
+          }
+        }
+      }
+    ]);
+
+    const paymentBreakdown = (paymentAgg || []).map(row => ({
+      type: row._id || 'UNKNOWN',
+      count: row.count || 0,
+      amount: row.amount || 0
+    }));
+
+    // Status breakdown
+    const statusAgg = await Order.aggregate([
+      { $match: matchBase },
+      {
+        $group: {
+          _id: '$status',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    const statusBreakdown = {};
+    (statusAgg || []).forEach(row => {
+      statusBreakdown[row._id] = row.count;
+    });
+
+    // New vs Returning customers
+    const customersInRange = await Order.distinct('user', matchBase);
+
+    let newCustomers = 0;
+    let returningCustomers = 0;
+
+    if (customersInRange.length) {
+      const firstOrders = await Order.aggregate([
+        {
+          $match: {
+            user: { $in: customersInRange },
+            status: { $ne: 'PENDING_PAYMENT' }
+          }
+        },
+        {
+          $group: {
+            _id: '$user',
+            firstOrder: { $min: '$createdAt' }
+          }
+        }
+      ]);
+
+      firstOrders.forEach(row => {
+        if (row.firstOrder >= fromDate) newCustomers += 1;
+        else returningCustomers += 1;
+      });
+    }
+
+    return res.json({
+      range: {
+        from: fromDate,
+        to: new Date(toExclusive.getTime() - 1)
+      },
+      totalOrders,
+      totalSales,
+      avgOrderValue,
+      newCustomers,
+      returningCustomers,
+      paymentBreakdown,
+      statusBreakdown
+    });
+  } catch (err) {
+    console.error('Admin getAnalyticsSummary error:', err);
+    return res
+      .status(500)
+      .json({ message: 'Unable to load analytics summary right now.' });
+  }
+};
+
+// GET /api/admin/analytics/top-products?from=&to=&outletId=&limit=&sortBy=
+exports.getAnalyticsTopProducts = async (req, res) => {
+  try {
+    const { fromDate, toExclusive } = getDateRangeFromQuery(req.query);
+    const { outletId } = req.query;
+
+    const match = {
+      createdAt: { $gte: fromDate, $lt: toExclusive },
+      status: { $nin: ['PENDING_PAYMENT', 'CANCELLED'] }
+    };
+
+    if (outletId && mongoose.Types.ObjectId.isValid(outletId)) {
+      match.outlet = new mongoose.Types.ObjectId(outletId);
+    }
+
+    const limit = Math.max(
+      1,
+      Math.min(50, parseInt(req.query.limit, 10) || 10)
+    );
+    const sortBy = req.query.sortBy === 'revenue' ? 'revenue' : 'quantity';
+
+    const rows = await Order.aggregate([
+      { $match: match },
+      { $unwind: '$items' },
+      {
+        $group: {
+          _id: '$items.product',
+          name: { $first: '$items.productName' },
+          category: { $first: '$items.category' },
+          quantity: { $sum: '$items.quantity' },
+          revenue: { $sum: '$items.itemTotal' }
+        }
+      },
+      { $sort: { [sortBy]: -1 } },
+      { $limit: limit }
+    ]);
+
+    const topProducts = (rows || []).map(r => ({
+      productId: r._id,
+      name: r.name || '',
+      category: r.category || '',
+      quantity: r.quantity || 0,
+      revenue: r.revenue || 0
+    }));
+
+    return res.json({ topProducts });
+  } catch (err) {
+    console.error('Admin getAnalyticsTopProducts error:', err);
+    return res
+      .status(500)
+      .json({ message: 'Unable to load top products right now.' });
+  }
+};
+
+// GET /api/admin/analytics/top-customers?from=&to=&outletId=&limit=
+exports.getAnalyticsTopCustomers = async (req, res) => {
+  try {
+    const { fromDate, toExclusive } = getDateRangeFromQuery(req.query);
+    const { outletId } = req.query;
+
+    const match = {
+      createdAt: { $gte: fromDate, $lt: toExclusive },
+      status: { $ne: 'PENDING_PAYMENT' }
+    };
+
+    if (outletId && mongoose.Types.ObjectId.isValid(outletId)) {
+      match.outlet = new mongoose.Types.ObjectId(outletId);
+    }
+
+    const limit = Math.max(
+      1,
+      Math.min(50, parseInt(req.query.limit, 10) || 10)
+    );
+
+    const rows = await Order.aggregate([
+      { $match: match },
+      {
+        $group: {
+          _id: '$user',
+          orderCount: { $sum: 1 },
+          totalSpend: {
+            $sum: {
+              $cond: [
+                { $eq: ['$status', 'CANCELLED'] },
+                0,
+                '$grandTotal'
+              ]
+            }
+          }
+        }
+      },
+      { $sort: { totalSpend: -1 } },
+      { $limit: limit }
+    ]);
+
+    const userIds = (rows || []).map(r => r._id).filter(Boolean);
+
+    const users = await User.find({ _id: { $in: userIds } })
+      .select('name contact')
+      .lean();
+
+    const userMap = new Map(users.map(u => [String(u._id), u]));
+
+    const topCustomers = (rows || []).map(r => {
+      const u = userMap.get(String(r._id));
+      return {
+        userId: r._id,
+        name: u ? u.name : 'Unknown',
+        contact: u ? u.contact : '',
+        orderCount: r.orderCount || 0,
+        totalSpend: r.totalSpend || 0
+      };
+    });
+
+    return res.json({ topCustomers });
+  } catch (err) {
+    console.error('Admin getAnalyticsTopCustomers error:', err);
+    return res
+      .status(500)
+      .json({ message: 'Unable to load top customers right now.' });
+  }
+};
+
+// GET /api/admin/analytics/orders-by-hour?from=&to=&outletId=
+exports.getAnalyticsOrdersByHour = async (req, res) => {
+  try {
+    const { fromDate, toExclusive } = getDateRangeFromQuery(req.query);
+    const { outletId } = req.query;
+
+    const match = {
+      createdAt: { $gte: fromDate, $lt: toExclusive },
+      status: { $ne: 'PENDING_PAYMENT' }
+    };
+
+    if (outletId && mongoose.Types.ObjectId.isValid(outletId)) {
+      match.outlet = new mongoose.Types.ObjectId(outletId);
+    }
+
+    const rows = await Order.aggregate([
+      { $match: match },
+      {
+        $project: {
+          grandTotal: 1,
+          status: 1,
+          hour: {
+            $toInt: {
+              $dateToString: {
+                format: '%H',
+                date: '$createdAt',
+                timezone: 'Asia/Kolkata'
+              }
+            }
+          }
+        }
+      },
+      {
+        $group: {
+          _id: '$hour',
+          orderCount: { $sum: 1 },
+          totalSales: {
+            $sum: {
+              $cond: [
+                { $eq: ['$status', 'CANCELLED'] },
+                0,
+                '$grandTotal'
+              ]
+            }
+          }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+
+    const byHourMap = new Map();
+    (rows || []).forEach(r => {
+      byHourMap.set(r._id, {
+        orderCount: r.orderCount || 0,
+        totalSales: r.totalSales || 0
+      });
+    });
+
+    const byHour = [];
+    for (let h = 0; h < 24; h += 1) {
+      const row = byHourMap.get(h) || { orderCount: 0, totalSales: 0 };
+      byHour.push({
+        hour: h,
+        orderCount: row.orderCount,
+        totalSales: row.totalSales
+      });
+    }
+
+    return res.json({ byHour });
+  } catch (err) {
+    console.error('Admin getAnalyticsOrdersByHour error:', err);
+    return res
+      .status(500)
+      .json({ message: 'Unable to load hourly analytics right now.' });
   }
 };

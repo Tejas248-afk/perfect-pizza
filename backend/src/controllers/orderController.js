@@ -1,3 +1,4 @@
+// src/controllers/orderController.js
 const Joi = require('joi');
 const Order = require('../models/Order');
 const Outlet = require('../models/Outlet');
@@ -24,10 +25,6 @@ const cartItemSchema = Joi.object({
     )
     .default([]),
 
-  // NEW: frontend se aane wala combo detail
-  // [
-  //   { groupKey, groupTitle, label, extraPrice }
-  // ]
   comboSelections: Joi.array()
     .items(
       Joi.object({
@@ -97,6 +94,7 @@ function ensureStoreOpen(outlet) {
 /* ---------- Controllers ---------- */
 
 // POST /api/orders/preview
+// POST /api/orders/preview
 exports.previewOrder = async (req, res) => {
   try {
     const { error, value } = orderBaseSchema.validate(req.body || {}, {
@@ -122,11 +120,67 @@ exports.previewOrder = async (req, res) => {
   } catch (err) {
     console.error('previewOrder error:', err);
 
-    const status = err.statusCode || 500;
+    const status = err.statusCode || err.status || 500;
+    const hasCoupon = req.body && req.body.couponCode;
 
-    return res.status(status).json({
+    // Agar coupon ki wajah se 4xx error aayi ho, to bina coupon ke retry karo
+    if (
+      hasCoupon &&
+      status >= 400 &&
+      status < 500 &&
+      (err.code === 'COUPON_INVALID' ||
+        /coupon/i.test(err.message || ''))
+    ) {
+      console.warn(
+        'Retrying preview without coupon due to coupon error:',
+        err.message || err
+      );
+
+      try {
+        const bodyNoCoupon = {
+          ...(req.body || {}),
+          couponCode: ''
+        };
+
+        const { error: vErr, value: value2 } = orderBaseSchema.validate(
+          bodyNoCoupon,
+          { abortEarly: false }
+        );
+
+        if (vErr) {
+          return res.status(400).json({
+            message: vErr.details[0].message,
+            details: vErr.details
+          });
+        }
+
+        const outlet2 = await resolveOutlet(value2.outletId);
+        ensureStoreOpen(outlet2);
+
+        const preview2 = await buildOrderPreview({
+          user: req.user,
+          outlet: outlet2,
+          ...value2
+        });
+
+        // couponRemoved: true optional flag, agar frontend use karna chahe
+        return res.json({ preview: preview2, couponRemoved: true });
+      } catch (err2) {
+        console.error('previewOrder retry without coupon error:', err2);
+        const status2 = err2.statusCode || err2.status || 500;
+        return res.status(status2).json({
+          message:
+            err2.statusCode && status2 < 500
+              ? err2.message
+              : 'Unable to calculate order total right now.'
+        });
+      }
+    }
+
+    const finalStatus = status || 500;
+    return res.status(finalStatus).json({
       message:
-        err.statusCode && status < 500
+        err.statusCode && finalStatus < 500
           ? err.message
           : 'Unable to calculate order total right now.'
     });
@@ -159,7 +213,7 @@ exports.createCodOrder = async (req, res) => {
       user: preview.userId,
       outlet: outlet._id,
       outletName: outlet.name,
-      items: preview.items,          // yahan ab comboSelections bhi aa jayenge
+      items: preview.items,
       delivery: preview.delivery,
       subtotal: preview.subtotal,
       offerDiscount: preview.offerDiscount,
@@ -172,7 +226,6 @@ exports.createCodOrder = async (req, res) => {
       grandTotal: preview.grandTotal,
       rewardCoinsEarned: preview.rewardCoinsEarned,
 
-      // COD orders ke liye placed time abhi
       placedAt: new Date(),
 
       payment: {

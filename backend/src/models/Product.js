@@ -97,7 +97,6 @@ const addOnSchema = new Schema(
   { _id: false }
 );
 
-// Combo ke andar ke items (sirf information ke liye)
 const comboSubItemSchema = new Schema(
   {
     name: {
@@ -125,7 +124,6 @@ const productSchema = new Schema(
       type: String,
       required: true,
       trim: true
-      // future: Category model ref
     },
     description: {
       type: String,
@@ -144,7 +142,6 @@ const productSchema = new Schema(
       default: true
     },
 
-    // time-based availability (0–23, optional)
     availableFromHour: {
       type: Number,
       min: 0,
@@ -156,21 +153,35 @@ const productSchema = new Schema(
       max: 23
     },
 
-    // Agar ye COMBO product hai, to uske andar ke items yahan define kar sakte ho
-    // e.g. [{ name: "Veg Burger", quantity: 1 }, { name: "Cheese Corn Pizza (Medium)", quantity: 1 }]
     comboItems: [comboSubItemSchema],
 
     sizes: [sizeSchema],
     crusts: [crustSchema],
-    addOns: [addOnSchema]
+    addOns: [addOnSchema],
+
+    // IMPORTANT: yahi field admin combo edit ko DB me save karega
+    comboConfig: {
+      type: Schema.Types.Mixed,
+      default: null
+    },
+
+    displayOrder: {
+      type: Number,
+      default: 0
+    },
+
+    dailyDisabledUntil: {
+      type: Date,
+      default: null
+    }
   },
   { timestamps: true }
 );
 
 productSchema.index({ category: 1, isAvailable: 1 });
+productSchema.index({ category: 1, displayOrder: 1 });
 
 const Product = mongoose.model('Product', productSchema);
-
 Product.SIZES = SIZE_TYPES;
 
 module.exports = Product;

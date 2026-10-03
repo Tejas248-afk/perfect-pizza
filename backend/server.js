@@ -16,7 +16,7 @@ const orderRoutes = require('./src/routes/orderRoutes');
 const rewardRoutes = require('./src/routes/rewardRoutes');
 const adminRoutes = require('./src/routes/adminRoutes');
 const productRoutes = require('./src/routes/productRoutes');
-const couponPublicRoutes = require('./src/routes/couponPublicRoutes');
+const adminOfferRoutes = require('./src/routes/adminOfferRoutes'); // 👈 yahan src se import
 
 // PayU controller + auth middleware
 const paymentController = require('./src/controllers/paymentController');
@@ -27,16 +27,17 @@ const { initSocket } = require('./src/sockets/socket');
 const app = express();
 const server = http.createServer(app);
 
-/* ---------- Global Middlewares (ROUTES SE PEHLE) ---------- */
+/* ---------- GLOBAL MIDDLEWARES (ROUTES SE PEHLE) ---------- */
 
-// Security headers
-app.use(helmet());
+// 1) Render / proxy ke peeche ho to trust proxy ON karo
+//    Isse express-rate-limit ka X-Forwarded-For wala error fix hota hai
+app.set('trust proxy', 1);
 
-// Body parsers
+// 2) Body parsers
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// CORS
+// 3) CORS
 const allowedOrigins = [
   process.env.CLIENT_URL || 'http://localhost:5500',
   'http://127.0.0.1:5500'
@@ -47,43 +48,60 @@ app.use(
     origin: function (origin, callback) {
       if (!origin) return callback(null, true); // Postman, curl etc.
       if (allowedOrigins.includes(origin)) return callback(null, true);
-      // Dev ke liye open
+      // Dev ke liye abhi open allow kar rahe hain:
       return callback(null, true);
     },
     credentials: true
   })
 );
 
-// Static uploads (product images)
+// 4) Static uploads (product images) – sabse pehle register karo
+//    Taki yahan koi CORP / COEP apply na ho.
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Logging
+// 5) Helmet – BUT all cross‑origin resource policies OFF
+//    Taaki images dusre origin se bhi load ho saken.
+app.use(
+  helmet({
+    crossOriginResourcePolicy: false,     // CORP off
+    crossOriginEmbedderPolicy: false,     // COEP off
+    crossOriginOpenerPolicy: false        // COOP off
+  })
+);
+
+// 6) Logging
 app.use(morgan('dev'));
 
-// ---------- Rate limiter for /api (with exceptions) ----------
+// 7) Rate limiter for /api (with exceptions)
+//    + express-rate-limit ke X-Forwarded-For validation ko off kar diya.
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 1000,                // har IP ke liye 15 min me 1000 requests
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  validate: {
+    // X-Forwarded-For header aata hai (Render proxy se),
+    // lekin agar kabhi trust proxy mismatch ho bhi jaye to error throw na ho:
+    xForwardedForHeader: false
+  }
 });
 
 // Kuch routes ko limiter se bahar rakhne ke liye custom wrapper
 app.use('/api', (req, res, next) => {
-  const path = req.path || '';
+  const reqPath = req.path || '';
 
   // Kitchen orders list → polling + socket
-  if (path.startsWith('/orders/kitchen')) {
+  if (reqPath.startsWith('/orders/kitchen')) {
     return next();
   }
 
   // Single order detail (customer invoice / success page)
-  if (path.startsWith('/orders/') && req.method === 'GET') {
+  if (reqPath.startsWith('/orders/') && req.method === 'GET') {
     return next();
   }
 
   // Health check
-  if (path.startsWith('/health')) {
+  if (reqPath.startsWith('/health')) {
     return next();
   }
 
@@ -121,10 +139,10 @@ app.use('/api/orders', orderRoutes);
 // Reward routes
 app.use('/api/rewards', rewardRoutes);
 
-// Public coupons routes (active offers)
-app.use('/api/coupons', couponPublicRoutes);
+// Offers routes (ADMIN)
+app.use('/api/admin/offers', adminOfferRoutes);
 
-// Admin routes
+// Admin routes (other admin stuff)
 app.use('/api/admin', adminRoutes);
 
 /* ---------- PayU Payment Routes (DIRECT) ---------- */
