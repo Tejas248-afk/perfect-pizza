@@ -17,6 +17,8 @@ const rewardRoutes = require('./src/routes/rewardRoutes');
 const adminRoutes = require('./src/routes/adminRoutes');
 const productRoutes = require('./src/routes/productRoutes');
 const adminOfferRoutes = require('./src/routes/adminOfferRoutes'); // 👈 yahan src se import
+const adminCustomerRoutes = require('./src/routes/adminCustomerRoutes'); // 👈 new
+
 
 // PayU controller + auth middleware
 const paymentController = require('./src/controllers/paymentController');
@@ -141,6 +143,9 @@ app.use('/api/rewards', rewardRoutes);
 
 // Offers routes (ADMIN)
 app.use('/api/admin/offers', adminOfferRoutes);
+
+// Customers routes (ADMIN)
+app.use('/api/admin/customers', adminCustomerRoutes);
 
 // Admin routes (other admin stuff)
 app.use('/api/admin', adminRoutes);
