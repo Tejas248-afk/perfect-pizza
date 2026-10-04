@@ -3,12 +3,11 @@ const Product = require('../models/Product');
 const { applyCoupon } = require('./offerService');
 
 // Order preview & pricing logic
-// NOTE: Ye function orderController ke previewOrder & createCodOrder
-// dono ke saath compatible hai.
+// OrderController ke previewOrder & createCodOrder dono ke saath compatible
 async function buildOrderPreview({
   user,
   outlet,
-  items,
+  items,            // cart items from frontend
   deliveryType,
   address,
   landmark,
@@ -33,7 +32,7 @@ async function buildOrderPreview({
     throw err;
   }
 
-  // ---------------- Products fetch + items normalize ----------------
+  // --------- Products fetch ----------
 
   const productIds = items.map((it) => it.productId);
   const products = await Product.find({ _id: { $in: productIds } });
@@ -45,14 +44,32 @@ async function buildOrderPreview({
 
   let subtotal = 0;
 
+  // --------- Items normalize (match Order.orderItemSchema) ----------
+
   const normalizedItems = items.map((it) => {
     const product = productMap[it.productId];
-    const basePrice =
-      product && typeof product.price === 'number'
-        ? product.price
-        : typeof product.basePrice === 'number'
-        ? product.basePrice
-        : 0;
+
+    if (!product) {
+      const err = new Error('Product not found for cart item');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const quantity = it.quantity || 1;
+
+    // Base price – yahan tum apni Product schema ke hisaab se tweak kar sakte ho
+    let basePrice = 0;
+    if (typeof product.price === 'number') {
+      basePrice = product.price;
+    } else if (typeof product.basePrice === 'number') {
+      basePrice = product.basePrice;
+    } else if (Array.isArray(product.sizes) && product.sizes.length > 0) {
+      // agar product.sizes hai, to default pehli size ka price
+      const prices = product.sizes
+        .map((s) => s.price)
+        .filter((x) => typeof x === 'number');
+      if (prices.length > 0) basePrice = prices[0];
+    }
 
     // ComboSelections se extra price add karo
     const comboSelections = Array.isArray(it.comboSelections)
@@ -63,34 +80,61 @@ async function buildOrderPreview({
       0
     );
 
-    // Abhi ke liye addOns ke price product se tie nahi kar raha – future improvement
+    // Abhi ke liye addOns ka extra price product se tie nahi kar rahe
+    // (agar frontend se price aata ho to yahaan add kar sakte ho)
+    const addOns = Array.isArray(it.addOns) ? it.addOns : [];
+    const mappedAddOns = addOns.map((a) => ({
+      name: a.name,
+      quantity: a.quantity || 1,
+      price: a.price || 0,
+    }));
+
     const unitPrice = basePrice + comboExtra;
+    const itemTotal = unitPrice * quantity;
 
-    const quantity = it.quantity || 1;
-    const lineTotal = unitPrice * quantity;
+    subtotal += itemTotal;
 
-    subtotal += lineTotal;
+    // size / crust normalisation
+    const sizeNameRaw = it.size || 'REGULAR';
+    const sizeName = String(sizeNameRaw).toUpperCase(); // REGULAR/MEDIUM/LARGE etc.
+
+    const crustName = it.crust || '';
 
     return {
-      productId: it.productId,
-      name: product ? product.name : 'Unknown item',
-      size: it.size,
-      crust: it.crust,
-      quantity,
-      price: unitPrice,         // per unit
-      totalPrice: lineTotal,    // line total
-      isVeg: product ? product.isVeg : undefined,
-      addOns: Array.isArray(it.addOns) ? it.addOns : [],
-      comboSelections,
+      product: product._id,                            // required
+      productName: product.name,
+      image: product.imageUrl || product.image || '',
+      category: product.category || '',
+      isVeg: product.isVeg,
+
+      comboItems: [],                                  // legacy empty
+      comboSelections,                                 // new structure
+
+      size: {
+        name: sizeName,
+        price: basePrice,                              // base price tie kar diya
+      },
+
+      crust: {
+        name: crustName,
+        price: 0,                                      // agar crust extra price ho to yahan set karo
+      },
+
+      addOns: mappedAddOns,
+
+      quantity,                                        // required
+      unitPrice,                                       // required
+      itemTotal,                                       // required
+
+      notes: it.notes || '',
     };
   });
 
   // ---------------- Base charges ----------------
 
-  // Abhi ke liye outlet-specific external offers nahi laga rahe
-  const offerDiscount = 0;
+  const offerDiscount = 0; // abhi koi auto offer nahi
 
-  // Delivery fee: outlet se read karo agar hai, warna default
+  // Delivery fee: outlet.deliveryFee ya default
   const baseDeliveryFee =
     typeof outlet.deliveryFee === 'number'
       ? outlet.deliveryFee
@@ -100,7 +144,7 @@ async function buildOrderPreview({
 
   const deliveryFee = deliveryType === 'DELIVERY' ? baseDeliveryFee : 0;
 
-  // Tax: outlet.taxRate agar ho to use karo, warna 5%
+  // Tax: outlet.taxRate ya 5%
   const taxRate =
     typeof outlet.taxRate === 'number' ? outlet.taxRate : 0.05;
 
@@ -142,7 +186,6 @@ async function buildOrderPreview({
 
   // ---------------- Reward coins logic ----------------
 
-  // Assume: 1 coin = ₹1
   const maxCoinsUsable = Math.max(
     0,
     Math.min(
@@ -162,18 +205,18 @@ async function buildOrderPreview({
   const grandTotal = Math.max(0, preTaxTotal + deliveryFee + taxAmount);
 
   // Reward coins earned: simple rule – ₹50 per coin
-  const rewardCoinsEarned = grandTotal > 0
-    ? Math.floor(grandTotal / 50)
-    : 0;
+  const rewardCoinsEarned =
+    grandTotal > 0 ? Math.floor(grandTotal / 50) : 0;
 
-  // ---------------- Delivery object ----------------
+  // ---------------- Delivery object (Order.deliverySchema) ----------------
 
   const delivery = {
-    deliveryType,
+    deliveryType, // required by schema
     address: address || '',
     landmark: landmark || '',
     latitude: latitude ?? null,
     longitude: longitude ?? null,
+    distance: null,              // future: calculate based on outlet + user coords
   };
 
   // ---------------- Return preview object ----------------
