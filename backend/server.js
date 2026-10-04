@@ -19,6 +19,7 @@ const productRoutes = require('./src/routes/productRoutes');
 const adminOfferRoutes = require('./src/routes/adminOfferRoutes'); // 👈 yahan src se import
 const adminCustomerRoutes = require('./src/routes/adminCustomerRoutes'); // 👈 new
 const adminDeliveryRoutes = require('./src/routes/adminDeliveryRoutes'); // 👈 new
+const adminUserRoutes = require('./src/routes/adminUserRoutes');   // 👈 NEW
 
 
 
@@ -154,6 +155,9 @@ app.use('/api/admin', adminRoutes);
 
 // Delivery routes (ADMIN)
 app.use('/api/admin/delivery', adminDeliveryRoutes);
+
+// Users / Staff routes (ADMIN)
+app.use('/api/admin/users', adminUserRoutes);
 
 /* ---------- PayU Payment Routes (DIRECT) ---------- */
 
