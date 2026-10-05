@@ -6,8 +6,17 @@ const { logActivity } = require('../services/activityService');
 exports.listCombos = async (req, res, next) => {
   try {
     const { outletId } = req.query;
+
     const query = {};
-    if (outletId) query.outlet = outletId;
+
+    if (outletId) {
+      // Is outlet ke combos + jinke outlet set hi nahi hai (global combos)
+      query.$or = [
+        { outlet: outletId },
+        { outlet: { $exists: false } },
+        { outlet: null },
+      ];
+    }
 
     const combos = await Combo.find(query)
       .sort({ createdAt: -1 })
