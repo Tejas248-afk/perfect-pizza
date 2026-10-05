@@ -3,6 +3,7 @@ const Joi = require('joi');
 const Order = require('../models/Order');
 const Outlet = require('../models/Outlet');
 const { buildOrderPreview } = require('../services/orderService');
+const { logActivity } = require('../services/activityService');
 const {
   emitNewOrder,
   emitOrderStatusUpdated

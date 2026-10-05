@@ -1,6 +1,7 @@
 // src/controllers/adminUserController.js
 const User = require('../models/User');
 const Order = require('../models/Order');
+const { logActivity } = require('../services/activityService');
 
 const ALLOWED_ROLES = [
   'SUPER_ADMIN',
@@ -79,7 +80,6 @@ exports.updateUserRole = async (req, res, next) => {
 
     const requester = req.user;
 
-    // Only SUPER_ADMIN can manage SUPER_ADMIN role
     if (upperRole === 'SUPER_ADMIN' && requester.role !== 'SUPER_ADMIN') {
       return res
         .status(403)
@@ -101,8 +101,20 @@ exports.updateUserRole = async (req, res, next) => {
         .json({ message: 'You cannot modify SUPER_ADMIN user' });
     }
 
+    const beforeRole = targetUser.role || 'CUSTOMER';
     targetUser.role = upperRole;
     await targetUser.save();
+
+    // 🔐 Activity log
+    await logActivity({
+      reqUser: requester,
+      action: 'USER_ROLE_UPDATED',
+      entityType: 'USER',
+      entityId: targetUser._id,
+      entityName: targetUser.name || targetUser.contact || targetUser.email || '',
+      before: { role: beforeRole },
+      after: { role: upperRole },
+    });
 
     res.json({
       message: 'Role updated',
