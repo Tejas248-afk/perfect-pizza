@@ -21,6 +21,8 @@ const adminCustomerRoutes = require('./src/routes/adminCustomerRoutes'); // 👈
 const adminDeliveryRoutes = require('./src/routes/adminDeliveryRoutes'); // 👈 new
 const adminUserRoutes = require('./src/routes/adminUserRoutes');   // 👈 NEW
 const adminActivityRoutes = require('./src/routes/adminActivityRoutes'); // 👈 NEW
+const adminComboRoutes = require('./src/routes/adminComboRoutes');    // 👈 NEW
+const adminOutletRoutes = require('./src/routes/adminOutletRoutes');  // 👈 NEW
 
 
 
@@ -162,6 +164,12 @@ app.use('/api/admin/users', adminUserRoutes);
 
 // Activity log routes (ADMIN)
 app.use('/api/admin/activity', adminActivityRoutes);
+
+// Combos routes (ADMIN)
+app.use('/api/admin/combos', adminComboRoutes);
+
+// Outlets list (ADMIN)
+app.use('/api/admin/outlets', adminOutletRoutes);
 
 /* ---------- PayU Payment Routes (DIRECT) ---------- */
 
