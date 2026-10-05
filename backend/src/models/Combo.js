@@ -1,18 +1,38 @@
-// src/models/Combo.js
 const mongoose = require('mongoose');
 const { Schema } = mongoose;
 
 const comboItemSchema = new Schema(
   {
+    // Specific product reference (optional)
     product: {
       type: Schema.Types.ObjectId,
       ref: 'Product',
-      required: true,
+      required: false,
     },
-    productName: String,
-    size: String,              // REGULAR / MEDIUM / LARGE / 7" / ANY
+
+    // Jo naam website pe dikhana hai
+    // - agar product hai to optional
+    // - agar product null hai to required (Any Medium Pizza, Any Soft Drink, ...)
+    productName: {
+      type: String,
+      trim: true,
+      required: function () {
+        return !this.product;
+      },
+    },
+
+    size: {
+      type: String, // REGULAR / MEDIUM / LARGE / 7" / ANY
+      trim: true,
+    },
+
     quantity: { type: Number, min: 1, default: 1 },
-    group: String,             // Pizza / Drink / Side / Dessert (optional)
+
+    // Display grouping: Pizza / Drink / Side / Dessert / etc.
+    group: {
+      type: String,
+      trim: true,
+    },
   },
   { _id: false }
 );
@@ -22,8 +42,9 @@ const comboSchema = new Schema(
     outlet: {
       type: Schema.Types.ObjectId,
       ref: 'Outlet',
-      required: false,         // future: multi-outlet filter
+      required: false, // future: multi-outlet filter
     },
+
     name: { type: String, required: true, trim: true },
     description: { type: String, trim: true },
 
@@ -36,6 +57,9 @@ const comboSchema = new Schema(
     comboPrice: { type: Number, min: 0, required: true },
 
     isActive: { type: Boolean, default: true },
+
+    // Ye field humne frontend me use ki hai (Show on website)
+    showOnWebsite: { type: Boolean, default: true },
   },
   { timestamps: true }
 );
