@@ -1,3 +1,4 @@
+// src/routes/orderRoutes.js
 const express = require('express');
 const authMiddleware = require('../middleware/authMiddleware');
 const authorizeRoles = require('../middleware/roleMiddleware');
@@ -24,7 +25,15 @@ router.get(
   orderController.getKitchenOrders
 );
 
-// Order status update
+// Admin accepts order + sets prep time
+// PATCH /api/orders/:id/accept
+router.patch(
+  '/:id/accept',
+  authorizeRoles('ADMIN'),
+  orderController.acceptOrder
+);
+
+// Order status update (kitchen/admin)
 // PATCH /api/orders/:id/status
 router.patch(
   '/:id/status',
@@ -32,7 +41,6 @@ router.patch(
   orderController.updateOrderStatus
 );
 
-// Order delete
 // Order delete
 // DELETE /api/orders/:id
 router.delete(

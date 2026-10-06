@@ -6,7 +6,7 @@ const { buildOrderPreview } = require('../services/orderService');
 const { logActivity } = require('../services/activityService');
 const {
   emitNewOrder,
-  emitOrderStatusUpdated
+  emitOrderStatusUpdated,
 } = require('../sockets/socket');
 
 // ---------- CART ITEM VALIDATION ----------
@@ -21,7 +21,7 @@ const cartItemSchema = Joi.object({
     .items(
       Joi.object({
         name: Joi.string().required(),
-        quantity: Joi.number().integer().min(1).max(5).default(1)
+        quantity: Joi.number().integer().min(1).max(5).default(1),
       })
     )
     .default([]),
@@ -32,10 +32,10 @@ const cartItemSchema = Joi.object({
         groupKey: Joi.string().allow('', null),
         groupTitle: Joi.string().allow('', null),
         label: Joi.string().required(),
-        extraPrice: Joi.number().min(0).default(0)
+        extraPrice: Joi.number().min(0).default(0),
       })
     )
-    .default([])
+    .default([]),
 });
 
 const orderBaseSchema = Joi.object({
@@ -47,7 +47,7 @@ const orderBaseSchema = Joi.object({
   latitude: Joi.number().allow(null),
   longitude: Joi.number().allow(null),
   rewardCoinsToUse: Joi.number().integer().min(0).default(0),
-  couponCode: Joi.string().allow('', null)
+  couponCode: Joi.string().allow('', null),
 });
 
 const DEFAULT_OUTLET_ID = process.env.DEFAULT_OUTLET_ID;
@@ -95,17 +95,19 @@ function ensureStoreOpen(outlet) {
 /* ---------- Controllers ---------- */
 
 // POST /api/orders/preview
-// POST /api/orders/preview
 exports.previewOrder = async (req, res) => {
   try {
     const { error, value } = orderBaseSchema.validate(req.body || {}, {
-      abortEarly: false
+      abortEarly: false,
     });
 
     if (error) {
       return res
         .status(400)
-        .json({ message: error.details[0].message, details: error.details });
+        .json({
+          message: error.details[0].message,
+          details: error.details,
+        });
     }
 
     const outlet = await resolveOutlet(value.outletId);
@@ -114,7 +116,7 @@ exports.previewOrder = async (req, res) => {
     const preview = await buildOrderPreview({
       user: req.user,
       outlet,
-      ...value
+      ...value,
     });
 
     return res.json({ preview });
@@ -124,7 +126,7 @@ exports.previewOrder = async (req, res) => {
     const status = err.statusCode || err.status || 500;
     const hasCoupon = req.body && req.body.couponCode;
 
-    // Agar coupon ki wajah se 4xx error aayi ho, to bina coupon ke retry karo
+    // coupon error pe retry without coupon
     if (
       hasCoupon &&
       status >= 400 &&
@@ -140,18 +142,18 @@ exports.previewOrder = async (req, res) => {
       try {
         const bodyNoCoupon = {
           ...(req.body || {}),
-          couponCode: ''
+          couponCode: '',
         };
 
-        const { error: vErr, value: value2 } = orderBaseSchema.validate(
-          bodyNoCoupon,
-          { abortEarly: false }
-        );
+        const { error: vErr, value: value2 } =
+          orderBaseSchema.validate(bodyNoCoupon, {
+            abortEarly: false,
+          });
 
         if (vErr) {
           return res.status(400).json({
             message: vErr.details[0].message,
-            details: vErr.details
+            details: vErr.details,
           });
         }
 
@@ -161,19 +163,24 @@ exports.previewOrder = async (req, res) => {
         const preview2 = await buildOrderPreview({
           user: req.user,
           outlet: outlet2,
-          ...value2
+          ...value2,
         });
 
-        // couponRemoved: true optional flag, agar frontend use karna chahe
-        return res.json({ preview: preview2, couponRemoved: true });
+        return res.json({
+          preview: preview2,
+          couponRemoved: true,
+        });
       } catch (err2) {
-        console.error('previewOrder retry without coupon error:', err2);
+        console.error(
+          'previewOrder retry without coupon error:',
+          err2
+        );
         const status2 = err2.statusCode || err2.status || 500;
         return res.status(status2).json({
           message:
             err2.statusCode && status2 < 500
               ? err2.message
-              : 'Unable to calculate order total right now.'
+              : 'Unable to calculate order total right now.',
         });
       }
     }
@@ -183,7 +190,7 @@ exports.previewOrder = async (req, res) => {
       message:
         err.statusCode && finalStatus < 500
           ? err.message
-          : 'Unable to calculate order total right now.'
+          : 'Unable to calculate order total right now.',
     });
   }
 };
@@ -192,13 +199,16 @@ exports.previewOrder = async (req, res) => {
 exports.createCodOrder = async (req, res) => {
   try {
     const { error, value } = orderBaseSchema.validate(req.body || {}, {
-      abortEarly: false
+      abortEarly: false,
     });
 
     if (error) {
       return res
         .status(400)
-        .json({ message: error.details[0].message, details: error.details });
+        .json({
+          message: error.details[0].message,
+          details: error.details,
+        });
     }
 
     const outlet = await resolveOutlet(value.outletId);
@@ -207,7 +217,7 @@ exports.createCodOrder = async (req, res) => {
     const preview = await buildOrderPreview({
       user: req.user,
       outlet,
-      ...value
+      ...value,
     });
 
     const order = await Order.create({
@@ -232,12 +242,12 @@ exports.createCodOrder = async (req, res) => {
       payment: {
         paymentType: 'COD',
         paymentStatus: 'PENDING',
-        paymentReference: `COD-${Date.now()}`
+        paymentReference: `COD-${Date.now()}`,
       },
-      status: 'PLACED'
+      status: 'PLACED',
     });
 
-    // Reward coins balance update: current - used + earned
+    // Reward coins balance update
     try {
       const currentCoins = Number(req.user.rewardCoins || 0);
       const used = Number(preview.rewardCoinsUsed || 0);
@@ -249,7 +259,10 @@ exports.createCodOrder = async (req, res) => {
       req.user.rewardCoins = newBalance;
       await req.user.save();
     } catch (uErr) {
-      console.error('Failed to update reward coins for user:', uErr);
+      console.error(
+        'Failed to update reward coins for user:',
+        uErr
+      );
     }
 
     emitNewOrder(order);
@@ -257,7 +270,7 @@ exports.createCodOrder = async (req, res) => {
     return res.status(201).json({
       message: 'Order placed successfully',
       orderId: order._id,
-      order
+      order,
     });
   } catch (err) {
     console.error('createCodOrder error:', err);
@@ -268,7 +281,7 @@ exports.createCodOrder = async (req, res) => {
       message:
         err.statusCode && status < 500
           ? err.message
-          : 'Unable to place order right now.'
+          : 'Unable to place order right now.',
     });
   }
 };
@@ -278,7 +291,7 @@ exports.getMyOrders = async (req, res) => {
   try {
     const orders = await Order.find({
       user: req.user._id,
-      status: { $ne: 'PENDING_PAYMENT' }
+      status: { $ne: 'PENDING_PAYMENT' },
     })
       .sort({ createdAt: -1 })
       .select(
@@ -290,7 +303,10 @@ exports.getMyOrders = async (req, res) => {
     console.error('getMyOrders error:', err);
     return res
       .status(500)
-      .json({ message: 'Unable to fetch your orders right now.' });
+      .json({
+        message:
+          'Unable to fetch your orders right now.',
+      });
   }
 };
 
@@ -299,16 +315,26 @@ exports.getOrderById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const order = await Order.findById(id).populate('user', 'name contact');
+    const order = await Order.findById(id).populate(
+      'user',
+      'name contact'
+    );
 
     if (!order) {
-      return res.status(404).json({ message: 'Order not found' });
+      return res
+        .status(404)
+        .json({ message: 'Order not found' });
     }
 
     const isCustomer = req.user.role === 'CUSTOMER';
 
-    if (isCustomer && String(order.user._id) !== String(req.user._id)) {
-      return res.status(404).json({ message: 'Order not found' });
+    if (
+      isCustomer &&
+      String(order.user._id) !== String(req.user._id)
+    ) {
+      return res
+        .status(404)
+        .json({ message: 'Order not found' });
     }
 
     return res.json({ order });
@@ -316,7 +342,10 @@ exports.getOrderById = async (req, res) => {
     console.error('getOrderById error:', err);
     return res
       .status(500)
-      .json({ message: 'Unable to fetch order details right now.' });
+      .json({
+        message:
+          'Unable to fetch order details right now.',
+      });
   }
 };
 
@@ -329,11 +358,15 @@ exports.getKitchenOrders = async (req, res) => {
 
     // DEFAULT: active
     if (filter === 'active' || !filter) {
-      query.status = { $in: ['PLACED', 'BAKING', 'OUT_FOR_DELIVERY'] };
+      query.status = {
+        $in: ['PLACED', 'BAKING', 'OUT_FOR_DELIVERY'],
+      };
+      query.isAcceptedByAdmin = true; // ✅ sirf accepted orders
     } else if (filter === 'completed') {
       query.status = 'DELIVERED';
     } else if (filter === 'new') {
       query.status = 'PLACED';
+      query.isAcceptedByAdmin = true;
     }
 
     const orders = await Order.find(query)
@@ -345,7 +378,68 @@ exports.getKitchenOrders = async (req, res) => {
     console.error('getKitchenOrders error:', err);
     return res
       .status(500)
-      .json({ message: 'Unable to fetch kitchen orders right now.' });
+      .json({
+        message:
+          'Unable to fetch kitchen orders right now.',
+      });
+  }
+};
+
+/**
+ * PATCH /api/orders/:id/accept
+ * Admin: accept order + set kitchen prep time (minutes)
+ */
+exports.acceptOrder = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { prepMinutes } = req.body;
+
+    if (prepMinutes == null || isNaN(prepMinutes)) {
+      return res.status(400).json({
+        message: 'prepMinutes (number) is required',
+      });
+    }
+
+    const order = await Order.findById(id);
+    if (!order) {
+      return res
+        .status(404)
+        .json({ message: 'Order not found' });
+    }
+
+    const status = String(order.status || '').toUpperCase();
+    if (['CANCELLED', 'DELIVERED'].includes(status)) {
+      return res.status(400).json({
+        message:
+          'Cannot accept completed or cancelled order',
+      });
+    }
+
+    order.isAcceptedByAdmin = true;
+    order.acceptedAt = new Date();
+    order.kitchenPrepMinutes = Number(prepMinutes);
+
+    if (!order.placedAt) {
+      order.placedAt = new Date();
+    }
+
+    await order.save();
+
+    // Kitchen ko refresh kara do
+    emitOrderStatusUpdated(order);
+
+    return res.json({
+      message: 'Order accepted',
+      order,
+    });
+  } catch (err) {
+    console.error('acceptOrder error:', err);
+    return res
+      .status(500)
+      .json({
+        message:
+          'Unable to accept order right now.',
+      });
   }
 };
 
@@ -356,46 +450,55 @@ exports.updateOrderStatus = async (req, res) => {
     const { status } = req.body;
 
     if (!status) {
-      return res.status(400).json({ message: 'New status is required' });
+      return res
+        .status(400)
+        .json({ message: 'New status is required' });
     }
 
     const allowedStatuses = Order.STATUS;
     if (!allowedStatuses.includes(status)) {
-      return res.status(400).json({ message: 'Invalid status value' });
+      return res
+        .status(400)
+        .json({ message: 'Invalid status value' });
     }
 
     const order = await Order.findById(id);
 
     if (!order) {
-      return res.status(404).json({ message: 'Order not found' });
+      return res
+        .status(404)
+        .json({ message: 'Order not found' });
     }
 
     const currentStatus = order.status;
-    const deliveryType = order.delivery?.deliveryType || 'DELIVERY';
+    const deliveryType =
+      order.delivery?.deliveryType || 'DELIVERY';
 
     const transitionsDelivery = {
       PLACED: ['BAKING', 'OUT_FOR_DELIVERY', 'CANCELLED'],
       BAKING: ['OUT_FOR_DELIVERY', 'CANCELLED'],
       OUT_FOR_DELIVERY: ['DELIVERED', 'CANCELLED'],
       DELIVERED: [],
-      CANCELLED: []
+      CANCELLED: [],
     };
 
     const transitionsPickup = {
       PLACED: ['BAKING', 'CANCELLED'],
       BAKING: ['DELIVERED', 'CANCELLED'],
       DELIVERED: [],
-      CANCELLED: []
+      CANCELLED: [],
     };
 
     const transitions =
-      deliveryType === 'PICKUP' ? transitionsPickup : transitionsDelivery;
+      deliveryType === 'PICKUP'
+        ? transitionsPickup
+        : transitionsDelivery;
 
     const allowedNext = transitions[currentStatus] || [];
 
     if (!allowedNext.includes(status)) {
       return res.status(400).json({
-        message: `Cannot change status from ${currentStatus} to ${status} for ${deliveryType} order`
+        message: `Cannot change status from ${currentStatus} to ${status} for ${deliveryType} order`,
       });
     }
 
@@ -407,7 +510,6 @@ exports.updateOrderStatus = async (req, res) => {
 
     const now = new Date();
 
-    // placedAt safety
     if (status === 'PLACED' && !order.placedAt) {
       order.placedAt = now;
     }
@@ -439,7 +541,10 @@ exports.updateOrderStatus = async (req, res) => {
     console.error('updateOrderStatus error:', err);
     return res
       .status(500)
-      .json({ message: 'Unable to update order status right now.' });
+      .json({
+        message:
+          'Unable to update order status right now.',
+      });
   }
 };
 
@@ -450,25 +555,36 @@ exports.deleteOrder = async (req, res) => {
 
     const order = await Order.findById(id);
     if (!order) {
-      return res.status(404).json({ message: 'Order not found' });
+      return res
+        .status(404)
+        .json({ message: 'Order not found' });
     }
 
     const role = req.user.role;
 
     // CUSTOMER can only delete their own order
-    if (role === 'CUSTOMER' && String(order.user) !== String(req.user._id)) {
-      return res
-        .status(403)
-        .json({ message: 'You are not allowed to delete this order.' });
+    if (
+      role === 'CUSTOMER' &&
+      String(order.user) !== String(req.user._id)
+    ) {
+      return res.status(403).json({
+        message:
+          'You are not allowed to delete this order.',
+      });
     }
 
     await order.deleteOne();
 
-    return res.json({ message: 'Order deleted successfully' });
+    return res.json({
+      message: 'Order deleted successfully',
+    });
   } catch (err) {
     console.error('deleteOrder error', err);
     return res
       .status(500)
-      .json({ message: 'Unable to delete order right now.' });
+      .json({
+        message:
+          'Unable to delete order right now.',
+      });
   }
 };
