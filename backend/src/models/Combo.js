@@ -1,9 +1,10 @@
+// src/models/Combo.js
 const mongoose = require('mongoose');
 const { Schema } = mongoose;
 
 const comboItemSchema = new Schema(
   {
-    // Specific product reference (optional)
+    // Optional specific product reference
     product: {
       type: Schema.Types.ObjectId,
       ref: 'Product',
@@ -12,7 +13,7 @@ const comboItemSchema = new Schema(
 
     // Jo naam website pe dikhana hai
     // - agar product hai to optional
-    // - agar product null hai to required (Any Medium Pizza, Any Soft Drink, ...)
+    // - agar product null hai to required (Any Medium Pizza, Any Soft Drink...)
     productName: {
       type: String,
       trim: true,
@@ -28,7 +29,7 @@ const comboItemSchema = new Schema(
 
     quantity: { type: Number, min: 1, default: 1 },
 
-    // Display grouping: Pizza / Drink / Side / Dessert / etc.
+    // Pizza / Drink / Side / Dessert / Other
     group: {
       type: String,
       trim: true,
@@ -42,7 +43,7 @@ const comboSchema = new Schema(
     outlet: {
       type: Schema.Types.ObjectId,
       ref: 'Outlet',
-      required: false, // future: multi-outlet filter
+      required: false, // multi-outlet ke liye future
     },
 
     name: { type: String, required: true, trim: true },
@@ -56,10 +57,15 @@ const comboSchema = new Schema(
     regularPrice: { type: Number, min: 0 },
     comboPrice: { type: Number, min: 0, required: true },
 
+    // Active / inactive toggle
     isActive: { type: Boolean, default: true },
 
-    // Ye field humne frontend me use ki hai (Show on website)
+    // Website par dikhana hai ya nahi
     showOnWebsite: { type: Boolean, default: true },
+
+    // Time based availability (optional)
+    availableFromHour: { type: Number, min: 0, max: 23 },
+    availableToHour: { type: Number, min: 0, max: 23 },
   },
   { timestamps: true }
 );

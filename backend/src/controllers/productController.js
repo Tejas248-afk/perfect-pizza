@@ -1,10 +1,50 @@
-// src/controllers/productController.js
 const mongoose = require('mongoose');
 const Product = require('../models/Product');
 const Order = require('../models/Order');
 const Category = require('../models/Category');
 
 /* ========== Public: customer side ========== */
+
+/**
+ * Helper: current time (IST) ko fractional hours me (e.g. 10:30 => 10.5)
+ */
+function getCurrentHourIST() {
+  const now = new Date();
+  const istNow = new Date(
+    now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })
+  );
+  return istNow.getHours() + istNow.getMinutes() / 60;
+}
+
+/**
+ * Helper: product ke availableFromHour / availableToHour ke basis par time check
+ * supports:
+ *  - dono null/undefined => hamesha available
+ *  - sirf from set => from se aage
+ *  - sirf to set => us time se pehle
+ *  - wrap over midnight (e.g. 22.0 -> 3.0)
+ */
+function isWithinTimeWindow(item, currentHour) {
+  const from =
+    typeof item.availableFromHour === 'number'
+      ? item.availableFromHour
+      : null;
+  const to =
+    typeof item.availableToHour === 'number'
+      ? item.availableToHour
+      : null;
+
+  if (from == null && to == null) return true;
+  if (from != null && to == null) return currentHour >= from;
+  if (from == null && to != null) return currentHour < to;
+
+  if (from <= to) {
+    // same-day window
+    return currentHour >= from && currentHour < to;
+  }
+  // wrap-around (e.g. 22:00 -> 03:00 next day)
+  return currentHour >= from || currentHour < to;
+}
 
 /**
  * GET /api/products
@@ -18,7 +58,7 @@ exports.getProducts = async (req, res) => {
       .lean();
 
     const activeCategoryNames = new Set(
-      categories.map(c => (c.name || '').trim()).filter(Boolean)
+      categories.map((c) => (c.name || '').trim()).filter(Boolean)
     );
 
     const categoryOrderMap = new Map();
@@ -28,31 +68,25 @@ exports.getProducts = async (req, res) => {
       categoryOrderMap.set(key, idx);
     });
 
-    // 2) Available products
+    // 2) Available products (sirf isAvailable=true)
     let products = await Product.find({
-      isAvailable: true
-    });
+      isAvailable: true,
+    }).lean();
 
     // 3) Time-based filter (IST) + dailyDisabledUntil
     const now = new Date();
-    const istNow = new Date(
-      now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })
-    );
-    const hour = istNow.getHours(); // 0–23
+    const hourIST = getCurrentHourIST();
 
-    products = products.filter(p => {
+    products = products.filter((p) => {
       // "Stop today" check
       if (p.dailyDisabledUntil && new Date(p.dailyDisabledUntil) > now) {
         return false;
       }
 
-      const from =
-        typeof p.availableFromHour === 'number' ? p.availableFromHour : 0;
-      const to =
-        typeof p.availableToHour === 'number' ? p.availableToHour : 24;
-
-      const okTime = hour >= from && hour < to;
-      if (!okTime) return false;
+      // Time window check (supports custom HH:MM)
+      if (!isWithinTimeWindow(p, hourIST)) {
+        return false;
+      }
 
       const cat = (p.category || '').trim();
 
@@ -64,7 +98,15 @@ exports.getProducts = async (req, res) => {
       return true;
     });
 
-    // 4) Sort: category order -> displayOrder -> name
+    // 4) Add-ons filter: sirf isAvailable !== false waale add-ons bhejo
+    products = products.map((p) => ({
+      ...p,
+      addOns: Array.isArray(p.addOns)
+        ? p.addOns.filter((a) => a.isAvailable !== false)
+        : [],
+    }));
+
+    // 5) Sort: category order -> displayOrder -> name
     products.sort((a, b) => {
       const ca = (a.category || '').trim();
       const cb = (b.category || '').trim();
@@ -112,7 +154,9 @@ exports.getProductById = async (req, res) => {
     // Optional: dailyDisabledUntil ko yahan bhi respect kar sakte ho
     const now = new Date();
     if (product.dailyDisabledUntil && product.dailyDisabledUntil > now) {
-      return res.status(404).json({ message: 'Product not available today' });
+      return res
+        .status(404)
+        .json({ message: 'Product not available today' });
     }
 
     return res.json({ product });
@@ -135,7 +179,7 @@ exports.getAllProductsAdmin = async (req, res) => {
     const products = await Product.find({}).sort({
       category: 1,
       displayOrder: 1,
-      createdAt: -1
+      createdAt: -1,
     });
 
     return res.json({ products });
@@ -166,7 +210,7 @@ exports.createProduct = async (req, res) => {
       } catch (parseErr) {
         return res.status(400).json({
           message: 'Invalid product data JSON.',
-          error: parseErr.message
+          error: parseErr.message,
         });
       }
     } else {
@@ -229,7 +273,7 @@ exports.updateProduct = async (req, res) => {
       } catch (parseErr) {
         return res.status(400).json({
           message: 'Invalid product data JSON.',
-          error: parseErr.message
+          error: parseErr.message,
         });
       }
     } else {
@@ -250,7 +294,7 @@ exports.updateProduct = async (req, res) => {
     }
 
     const product = await Product.findByIdAndUpdate(id, body, {
-      new: true
+      new: true,
     });
 
     if (!product) {
@@ -342,8 +386,8 @@ exports.reorderProducts = async (req, res) => {
     const bulk = ids.map((id, index) => ({
       updateOne: {
         filter: { _id: id },
-        update: { displayOrder: index }
-      }
+        update: { displayOrder: index },
+      },
     }));
 
     await Product.bulkWrite(bulk);
@@ -398,7 +442,7 @@ exports.toggleStockToday = async (req, res) => {
         newValue === null
           ? 'Today stock block cleared.'
           : 'Product disabled for today.',
-      dailyDisabledUntil: product.dailyDisabledUntil
+      dailyDisabledUntil: product.dailyDisabledUntil,
     });
   } catch (err) {
     console.error('toggleStockToday error:', err);
@@ -428,23 +472,23 @@ exports.getProductStats = async (req, res) => {
       {
         $match: {
           createdAt: { $gte: since },
-          status: { $ne: 'PENDING_PAYMENT' }
-        }
+          status: { $ne: 'PENDING_PAYMENT' },
+        },
       },
       { $unwind: '$items' },
       {
         $match: {
-          'items.product': new mongoose.Types.ObjectId(id)
-        }
+          'items.product': new mongoose.Types.ObjectId(id),
+        },
       },
       {
         $group: {
           _id: '$items.product',
           quantity: { $sum: '$items.quantity' },
           revenue: { $sum: '$items.itemTotal' },
-          orderIds: { $addToSet: '$_id' }
-        }
-      }
+          orderIds: { $addToSet: '$_id' },
+        },
+      },
     ];
 
     const [row] = await Order.aggregate(pipeline);
@@ -457,8 +501,8 @@ exports.getProductStats = async (req, res) => {
           quantity: 0,
           revenue: 0,
           avgOrderValue: 0,
-          orderSharePercent: 0
-        }
+          orderSharePercent: 0,
+        },
       });
     }
 
@@ -468,7 +512,7 @@ exports.getProductStats = async (req, res) => {
 
     const totalOrders = await Order.countDocuments({
       createdAt: { $gte: since },
-      status: { $ne: 'PENDING_PAYMENT' }
+      status: { $ne: 'PENDING_PAYMENT' },
     });
 
     const avgOrderValue = orderCount ? revenue / orderCount : 0;
@@ -482,8 +526,8 @@ exports.getProductStats = async (req, res) => {
         quantity,
         revenue,
         avgOrderValue,
-        orderSharePercent
-      }
+        orderSharePercent,
+      },
     });
   } catch (err) {
     console.error('getProductStats error', err);
