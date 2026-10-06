@@ -152,95 +152,26 @@ const ORDER_STATUS = [
 
 const orderSchema = new Schema(
   {
-    user: {
-      type: Schema.Types.ObjectId,
-      ref: 'User',
-      required: true
+    // ... tumhara existing fields
+
+    // Admin ne order accept kiya ya nahi
+    isAcceptedByAdmin: {
+      type: Boolean,
+      default: false,
     },
 
-    // Multi-outlet support
-    outlet: {
-      type: Schema.Types.ObjectId,
-      ref: 'Outlet'
-    },
-    outletName: {
-      type: String,
-      trim: true
+    // Kab accept kiya
+    acceptedAt: {
+      type: Date,
+      default: null,
     },
 
-    items: {
-      type: [orderItemSchema],
-      validate: v => Array.isArray(v) && v.length > 0
-    },
-
-    delivery: deliverySchema,
-
-    subtotal: {
+    // Admin ne kitne minutes ka prep time diya
+    kitchenPrepMinutes: {
       type: Number,
-      required: true,
-      min: 0
+      default: null,
+      min: 0,
     },
-    // BOGO / other automatic offers
-    offerDiscount: {
-      type: Number,
-      default: 0,
-      min: 0
-    },
-    deliveryFee: {
-      type: Number,
-      required: true,
-      min: 0
-    },
-    taxAmount: {
-      type: Number,
-      default: 0,
-      min: 0
-    },
-    // Coupon
-    couponCode: {
-      type: String,
-      default: ''
-    },
-    couponDiscount: {
-      type: Number,
-      default: 0,
-      min: 0
-    },
-    rewardCoinsUsed: {
-      type: Number,
-      default: 0,
-      min: 0
-    },
-    rewardDiscount: {
-      type: Number,
-      default: 0,
-      min: 0
-    },
-    grandTotal: {
-      type: Number,
-      required: true,
-      min: 0
-    },
-    rewardCoinsEarned: {
-      type: Number,
-      default: 0,
-      min: 0
-    },
-
-    // -------- STATUS TIMESTAMPS --------
-    placedAt: { type: Date },
-    bakingAt: { type: Date },
-    outForDeliveryAt: { type: Date },
-    deliveredAt: { type: Date },
-    cancelledAt: { type: Date },
-
-    payment: paymentSchema,
-
-    status: {
-      type: String,
-      enum: ORDER_STATUS,
-      default: 'PLACED'
-    }
   },
   { timestamps: true }
 );
