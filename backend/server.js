@@ -16,15 +16,14 @@ const orderRoutes = require('./src/routes/orderRoutes');
 const rewardRoutes = require('./src/routes/rewardRoutes');
 const adminRoutes = require('./src/routes/adminRoutes');
 const productRoutes = require('./src/routes/productRoutes');
-const adminOfferRoutes = require('./src/routes/adminOfferRoutes'); // 👈 yahan src se import
+const adminOfferRoutes = require('./src/routes/adminOfferRoutes'); // 👈 src se import
 const adminCustomerRoutes = require('./src/routes/adminCustomerRoutes'); // 👈 new
 const adminDeliveryRoutes = require('./src/routes/adminDeliveryRoutes'); // 👈 new
-const adminUserRoutes = require('./src/routes/adminUserRoutes');   // 👈 NEW
+const adminUserRoutes = require('./src/routes/adminUserRoutes'); // 👈 NEW
 const adminActivityRoutes = require('./src/routes/adminActivityRoutes'); // 👈 NEW
-const adminComboRoutes = require('./src/routes/adminComboRoutes');    // 👈 NEW
-const adminOutletRoutes = require('./src/routes/adminOutletRoutes');  // 👈 NEW
-
-
+const adminComboRoutes = require('./src/routes/adminComboRoutes'); // 👈 NEW
+const adminOutletRoutes = require('./src/routes/adminOutletRoutes'); // 👈 NEW
+const adminReportRoutes = require('./src/routes/adminReportRoutes'); // ✅ FIX: src/ ke saath
 
 // PayU controller + auth middleware
 const paymentController = require('./src/controllers/paymentController');
@@ -38,7 +37,6 @@ const server = http.createServer(app);
 /* ---------- GLOBAL MIDDLEWARES (ROUTES SE PEHLE) ---------- */
 
 // 1) Render / proxy ke peeche ho to trust proxy ON karo
-//    Isse express-rate-limit ka X-Forwarded-For wala error fix hota hai
 app.set('trust proxy', 1);
 
 // 2) Body parsers
@@ -48,7 +46,7 @@ app.use(express.urlencoded({ extended: true }));
 // 3) CORS
 const allowedOrigins = [
   process.env.CLIENT_URL || 'http://localhost:5500',
-  'http://127.0.0.1:5500'
+  'http://127.0.0.1:5500',
 ];
 
 app.use(
@@ -59,42 +57,36 @@ app.use(
       // Dev ke liye abhi open allow kar rahe hain:
       return callback(null, true);
     },
-    credentials: true
+    credentials: true,
   })
 );
 
-// 4) Static uploads (product images) – sabse pehle register karo
-//    Taki yahan koi CORP / COEP apply na ho.
+// 4) Static uploads (product images)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// 5) Helmet – BUT all cross‑origin resource policies OFF
-//    Taaki images dusre origin se bhi load ho saken.
+// 5) Helmet – CORP/COEP/COOP off
 app.use(
   helmet({
-    crossOriginResourcePolicy: false,     // CORP off
-    crossOriginEmbedderPolicy: false,     // COEP off
-    crossOriginOpenerPolicy: false        // COOP off
+    crossOriginResourcePolicy: false,
+    crossOriginEmbedderPolicy: false,
+    crossOriginOpenerPolicy: false,
   })
 );
 
 // 6) Logging
 app.use(morgan('dev'));
 
-// 7) Rate limiter for /api (with exceptions)
-//    + express-rate-limit ke X-Forwarded-For validation ko off kar diya.
+// 7) Rate limiter wrapper for /api
 const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1000,                // har IP ke liye 15 min me 1000 requests
+  windowMs: 15 * 60 * 1000,
+  max: 1000,
   standardHeaders: true,
   legacyHeaders: false,
   validate: {
-    // X-Forwarded-For header aata hai (Render proxy se),
-    // lekin agar kabhi trust proxy mismatch ho bhi jaye to error throw na ho:
-    xForwardedForHeader: false
-  }
+    xForwardedForHeader: false,
+  },
 });
 
-// Kuch routes ko limiter se bahar rakhne ke liye custom wrapper
 app.use('/api', (req, res, next) => {
   const reqPath = req.path || '';
 
@@ -103,7 +95,7 @@ app.use('/api', (req, res, next) => {
     return next();
   }
 
-  // Single order detail (customer invoice / success page)
+  // Single order detail
   if (reqPath.startsWith('/orders/') && req.method === 'GET') {
     return next();
   }
@@ -131,7 +123,7 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     message: 'Perfect Pizza API working',
-    time: new Date().toISOString()
+    time: new Date().toISOString(),
   });
 });
 
@@ -171,6 +163,9 @@ app.use('/api/admin/combos', adminComboRoutes);
 // Outlets list (ADMIN)
 app.use('/api/admin/outlets', adminOutletRoutes);
 
+// ✅ Reports routes (ADMIN)
+app.use('/api/admin/reports', adminReportRoutes);
+
 /* ---------- PayU Payment Routes (DIRECT) ---------- */
 
 // Online payment start (user authenticated)
@@ -180,8 +175,11 @@ app.post(
   paymentController.initPayuPayment
 );
 
-// PayU callback (no auth, PayU call karega)
-app.post('/api/payment/payu/callback', paymentController.handlePayuCallback);
+// PayU callback (no auth)
+app.post(
+  '/api/payment/payu/callback',
+  paymentController.handlePayuCallback
+);
 
 /* ---------- Socket.IO init ---------- */
 initSocket(server);
@@ -196,7 +194,10 @@ app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
   res
     .status(err.status || 500)
-    .json({ message: err.message || 'Server error. Please try again later.' });
+    .json({
+      message:
+        err.message || 'Server error. Please try again later.',
+    });
 });
 
 /* ---------- Start Server ---------- */
