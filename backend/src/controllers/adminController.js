@@ -13,7 +13,7 @@ exports.getOverview = async (req, res) => {
     startOfDay.setHours(0, 0, 0, 0);
 
     const matchToday = {
-      createdAt: { $gte: startOfDay }
+      createdAt: { $gte: startOfDay },
     };
     if (outletId) {
       matchToday.outlet = outletId;
@@ -26,30 +26,39 @@ exports.getOverview = async (req, res) => {
           _id: null,
           totalOrders: { $sum: 1 },
           deliveredOrders: {
-            $sum: { $cond: [{ $eq: ['$status', 'DELIVERED'] }, 1, 0] }
+            $sum: {
+              $cond: [
+                { $eq: ['$status', 'DELIVERED'] },
+                1,
+                0,
+              ],
+            },
           },
           pendingOrders: {
             $sum: {
               $cond: [
                 {
-                  $in: ['$status', ['PLACED', 'BAKING', 'OUT_FOR_DELIVERY']]
+                  $in: [
+                    '$status',
+                    ['PLACED', 'BAKING', 'OUT_FOR_DELIVERY'],
+                  ],
                 },
                 1,
-                0
-              ]
-            }
+                0,
+              ],
+            },
           },
           sales: {
             $sum: {
               $cond: [
                 { $ne: ['$status', 'CANCELLED'] },
                 '$grandTotal',
-                0
-              ]
-            }
-          }
-        }
-      }
+                0,
+              ],
+            },
+          },
+        },
+      },
     ]);
 
     const today =
@@ -58,12 +67,17 @@ exports.getOverview = async (req, res) => {
             totalOrders: todayAgg[0].totalOrders,
             deliveredOrders: todayAgg[0].deliveredOrders,
             pendingOrders: todayAgg[0].pendingOrders,
-            sales: todayAgg[0].sales
+            sales: todayAgg[0].sales,
           }
-        : { totalOrders: 0, deliveredOrders: 0, pendingOrders: 0, sales: 0 };
+        : {
+            totalOrders: 0,
+            deliveredOrders: 0,
+            pendingOrders: 0,
+            sales: 0,
+          };
 
     const totalCustomers = await User.countDocuments({
-      role: User.ROLES.CUSTOMER
+      role: User.ROLES.CUSTOMER,
     });
 
     return res.json({ today, totalCustomers });
@@ -71,7 +85,10 @@ exports.getOverview = async (req, res) => {
     console.error('Admin getOverview error:', err);
     return res
       .status(500)
-      .json({ message: 'Unable to load admin overview right now.' });
+      .json({
+        message:
+          'Unable to load admin overview right now.',
+      });
   }
 };
 
@@ -84,7 +101,7 @@ exports.getOrders = async (req, res) => {
       page = 1,
       limit = 20,
       outletId,
-      onlyToday
+      onlyToday,
     } = req.query;
     const query = {};
 
@@ -106,12 +123,24 @@ exports.getOrders = async (req, res) => {
       const regex = new RegExp(search, 'i');
       query.$or = [
         { 'payment.paymentReference': regex },
-        { _id: search.length >= 12 ? search : undefined } // rough
+        {
+          _id:
+            search.length >= 12 ? search : undefined,
+        }, // rough
       ].filter(Boolean);
     }
 
-    const pageNum = Math.max(1, parseInt(page, 10) || 1);
-    const limitNum = Math.max(1, Math.min(100, parseInt(limit, 10) || 20));
+    const pageNum = Math.max(
+      1,
+      parseInt(page, 10) || 1
+    );
+    const limitNum = Math.max(
+      1,
+      Math.min(
+        100,
+        parseInt(limit, 10) || 20
+      )
+    );
     const skip = (pageNum - 1) * limitNum;
 
     const [orders, total] = await Promise.all([
@@ -120,29 +149,32 @@ exports.getOrders = async (req, res) => {
         .skip(skip)
         .limit(limitNum)
         .populate('user', 'name contact'),
-      Order.countDocuments(query)
+      Order.countDocuments(query),
     ]);
 
     return res.json({
       total,
       page: pageNum,
       limit: limitNum,
-      orders
+      orders,
     });
   } catch (err) {
     console.error('Admin getOrders error:', err);
     return res
       .status(500)
-      .json({ message: 'Unable to fetch orders for admin right now.' });
+      .json({
+        message:
+          'Unable to fetch orders for admin right now.',
+      });
   }
 };
 
 // GET /api/admin/customers
 exports.getCustomers = async (req, res) => {
   try {
-    const customers = await User.find({ role: User.ROLES.CUSTOMER }).select(
-      'name contact rewardCoins createdAt'
-    );
+    const customers = await User.find({
+      role: User.ROLES.CUSTOMER,
+    }).select('name contact rewardCoins createdAt');
 
     const stats = await Order.aggregate([
       {
@@ -154,21 +186,24 @@ exports.getCustomers = async (req, res) => {
               $cond: [
                 { $ne: ['$status', 'CANCELLED'] },
                 '$grandTotal',
-                0
-              ]
-            }
-          }
-        }
-      }
+                0,
+              ],
+            },
+          },
+        },
+      },
     ]);
 
-    const statsMap = new Map(stats.map(s => [String(s._id), s]));
+    const statsMap = new Map(
+      stats.map((s) => [String(s._id), s])
+    );
 
-    const result = customers.map(c => {
-      const s = statsMap.get(String(c._id)) || {
-        totalOrders: 0,
-        totalSpend: 0
-      };
+    const result = customers.map((c) => {
+      const s =
+        statsMap.get(String(c._id)) || {
+          totalOrders: 0,
+          totalSpend: 0,
+        };
       return {
         id: c._id,
         name: c.name,
@@ -176,7 +211,7 @@ exports.getCustomers = async (req, res) => {
         rewardCoins: c.rewardCoins,
         createdAt: c.createdAt,
         totalOrders: s.totalOrders,
-        totalSpend: s.totalSpend
+        totalSpend: s.totalSpend,
       };
     });
 
@@ -185,9 +220,17 @@ exports.getCustomers = async (req, res) => {
     console.error('Admin getCustomers error:', err);
     return res
       .status(500)
-      .json({ message: 'Unable to fetch customers right now.' });
+      .json({
+        message:
+          'Unable to fetch customers right now.',
+      });
   }
 };
+
+// ---------- Delivery Rules + Analytics (baaki code jaisa tha, waise hi rehne do ----------
+
+// ---------- Delivery Rules etc. (baaki sab same jaisa tha) ----------
+// (yahan se niche tumhara original code almost unchanged rakha hai)
 
 // ---------- Delivery Rules ----------
 

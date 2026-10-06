@@ -9,49 +9,47 @@ const orderItemAddOnSchema = new Schema(
   {
     name: String,
     price: { type: Number, min: 0 },
-    quantity: { type: Number, default: 1, min: 1 }
+    quantity: { type: Number, default: 1, min: 1 },
   },
   { _id: false }
 );
 
 // Combo ke andar ke items (old, legacy use)
-// e.g. ["Pizza", "Burger", "Drink"] etc – agar kahin use ho raha ho to rehne do
 const comboItemSchema = new Schema(
   {
     name: {
       type: String,
-      trim: true
+      trim: true,
     },
     quantity: {
       type: Number,
       default: 1,
-      min: 1
-    }
+      min: 1,
+    },
   },
   { _id: false }
 );
 
 // NEW: comboSelections – frontend se aane wali exact selection
-// e.g. { groupTitle: "Pizza", label: "Paneer Onion Pizza" }
 const comboSelectionSchema = new Schema(
   {
     groupKey: {
       type: String,
-      trim: true
+      trim: true,
     },
     groupTitle: {
       type: String,
-      trim: true
+      trim: true,
     },
     label: {
       type: String,
-      trim: true
+      trim: true,
     },
     extraPrice: {
       type: Number,
       min: 0,
-      default: 0
-    }
+      default: 0,
+    },
   },
   { _id: false }
 );
@@ -61,33 +59,27 @@ const orderItemSchema = new Schema(
     product: {
       type: Schema.Types.ObjectId,
       ref: 'Product',
-      required: true
+      required: true,
     },
     productName: String,
     image: String,
     category: String,
     isVeg: Boolean,
 
-    // LEGACY: agar pehle se kuch use ho raha ho to
+    // LEGACY
     comboItems: [comboItemSchema],
 
-    // NEW: combo detail exactly jaisa customer ne choose kiya
-    // Example:
-    // [
-    //   { groupTitle: "Pizza", label: "Paneer Onion Pizza" },
-    //   { groupTitle: "Side", label: "Burger" },
-    //   { groupTitle: "Beverages", label: "ColdDrink 250ml" }
-    // ]
+    // NEW
     comboSelections: [comboSelectionSchema],
 
     size: {
       name: { type: String, enum: SIZE_TYPES },
-      price: { type: Number, min: 0 }
+      price: { type: Number, min: 0 },
     },
 
     crust: {
       name: String,
-      price: { type: Number, min: 0 }
+      price: { type: Number, min: 0 },
     },
 
     addOns: [orderItemAddOnSchema],
@@ -97,7 +89,7 @@ const orderItemSchema = new Schema(
     unitPrice: { type: Number, required: true, min: 0 },
     itemTotal: { type: Number, required: true, min: 0 },
 
-    notes: String
+    notes: String,
   },
   { _id: false }
 );
@@ -107,13 +99,13 @@ const deliverySchema = new Schema(
     deliveryType: {
       type: String,
       enum: ['DELIVERY', 'PICKUP'],
-      required: true
+      required: true,
     },
     address: String,
     landmark: String,
     latitude: Number,
     longitude: Number,
-    distance: Number
+    distance: Number,
   },
   { _id: false }
 );
@@ -123,19 +115,19 @@ const paymentSchema = new Schema(
     paymentType: {
       type: String,
       enum: ['COD', 'PAYU'],
-      required: true
+      required: true,
     },
     paymentStatus: {
       type: String,
       enum: ['PENDING', 'SUCCESS', 'FAILED', 'REFUNDED'],
-      default: 'PENDING'
+      default: 'PENDING',
     },
     paymentReference: String,
     payuOrderId: String,
     payuTxnId: String,
     rawGatewayResponse: {
-      type: Schema.Types.Mixed
-    }
+      type: Schema.Types.Mixed,
+    },
   },
   { _id: false }
 );
@@ -147,26 +139,119 @@ const ORDER_STATUS = [
   'BAKING',
   'OUT_FOR_DELIVERY',
   'DELIVERED',
-  'CANCELLED'
+  'CANCELLED',
 ];
 
 const orderSchema = new Schema(
   {
-    // ... tumhara existing fields
+    user: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
 
-    // Admin ne order accept kiya ya nahi
+    outlet: {
+      type: Schema.Types.ObjectId,
+      ref: 'Outlet',
+    },
+
+    outletName: {
+      type: String,
+      trim: true,
+    },
+
+    items: {
+      type: [orderItemSchema],
+      validate: (v) =>
+        Array.isArray(v) && v.length > 0,
+    },
+
+    delivery: deliverySchema,
+
+    subtotal: {
+      type: Number,
+      min: 0,
+      required: true,
+    },
+
+    offerDiscount: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
+
+    deliveryFee: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
+
+    taxAmount: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
+
+    couponCode: {
+      type: String,
+      trim: true,
+    },
+
+    couponDiscount: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
+
+    rewardCoinsUsed: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
+
+    rewardDiscount: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
+
+    grandTotal: {
+      type: Number,
+      min: 0,
+      required: true,
+    },
+
+    rewardCoinsEarned: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
+
+    placedAt: Date,
+    bakingAt: Date,
+    outForDeliveryAt: Date,
+    deliveredAt: Date,
+    cancelledAt: Date,
+
+    payment: paymentSchema,
+
+    status: {
+      type: String,
+      enum: ORDER_STATUS,
+      default: 'PLACED',
+    },
+
+    // ✅ NEW: admin acceptance + prep time
     isAcceptedByAdmin: {
       type: Boolean,
       default: false,
     },
 
-    // Kab accept kiya
     acceptedAt: {
       type: Date,
       default: null,
     },
 
-    // Admin ne kitne minutes ka prep time diya
     kitchenPrepMinutes: {
       type: Number,
       default: null,
@@ -182,14 +267,14 @@ orderSchema.index({ status: 1, createdAt: -1 });
 const Order = mongoose.model('Order', orderSchema);
 Order.STATUS = ORDER_STATUS;
 
-// Optional transition map (agar kahi use ho)
+// Optional transition map (agar kahin use ho)
 const ALLOWED_TRANSITIONS = {
-  PENDING_PAYMENT: ['CANCELLED'], // manual cancel allowed if needed
+  PENDING_PAYMENT: ['CANCELLED'], // manual cancel allowed
   PLACED: ['BAKING', 'CANCELLED'],
   BAKING: ['OUT_FOR_DELIVERY', 'CANCELLED'],
   OUT_FOR_DELIVERY: ['DELIVERED', 'CANCELLED'],
   DELIVERED: [],
-  CANCELLED: []
+  CANCELLED: [],
 };
 
 Order.canTransition = function (fromStatus, toStatus) {
