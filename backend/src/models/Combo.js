@@ -38,12 +38,29 @@ const comboItemSchema = new Schema(
   { _id: false }
 );
 
+// ✅ NEW: upgrades (Cheese Burst +₹60, Extra Cheese +₹40, etc.)
+const comboUpgradeSchema = new Schema(
+  {
+    label: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    price: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
+  },
+  { _id: false }
+);
+
 const comboSchema = new Schema(
   {
     outlet: {
       type: Schema.Types.ObjectId,
       ref: 'Outlet',
-      required: false, // multi-outlet ke liye future
+      required: false, // future: multi-outlet filter
     },
 
     name: { type: String, required: true, trim: true },
@@ -53,6 +70,14 @@ const comboSchema = new Schema(
       type: [comboItemSchema],
       validate: (v) => Array.isArray(v) && v.length > 0,
     },
+
+    // ✅ NEW: combo-level add-ons / upgrades
+    // Example:
+    // upgrades: [
+    //   { label: "Cheese Burst", price: 60 },
+    //   { label: "Extra Cheese", price: 40 }
+    // ]
+    upgrades: [comboUpgradeSchema],
 
     regularPrice: { type: Number, min: 0 },
     comboPrice: { type: Number, min: 0, required: true },
