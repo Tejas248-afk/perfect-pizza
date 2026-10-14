@@ -22,16 +22,28 @@ router.get('/overview', adminController.getOverview);
 
 // ---------- Analytics ----------
 router.get('/analytics/summary', adminController.getAnalyticsSummary);
-router.get('/analytics/top-products', adminController.getAnalyticsTopProducts);
-router.get('/analytics/top-customers', adminController.getAnalyticsTopCustomers);
+router.get(
+  '/analytics/top-products',
+  adminController.getAnalyticsTopProducts
+);
+router.get(
+  '/analytics/top-customers',
+  adminController.getAnalyticsTopCustomers
+);
 router.get(
   '/analytics/orders-by-hour',
   adminController.getAnalyticsOrdersByHour
 );
 
 // ---------- Site Settings ----------
-router.get('/settings/site', settingsAdminController.getSiteSettings);
-router.put('/settings/site', settingsAdminController.updateSiteSettings);
+router.get(
+  '/settings/site',
+  settingsAdminController.getSiteSettings
+);
+router.put(
+  '/settings/site',
+  settingsAdminController.updateSiteSettings
+);
 
 // ---------- Outlet config (timing + settings) ----------
 router.get('/outlet', outletAdminController.getOutletConfig);
@@ -42,7 +54,10 @@ router.put('/outlet', outletAdminController.updateOutletConfig);
 router.get('/outlets', outletAdminController.listOutlets);
 
 // Outlets management page (all outlets)
-router.get('/outlets/manage', outletAdminController.getAllOutletsAdmin);
+router.get(
+  '/outlets/manage',
+  outletAdminController.getAllOutletsAdmin
+);
 router.post('/outlets', outletAdminController.createOutlet);
 router.put('/outlets/:id', outletAdminController.updateOutlet);
 
@@ -66,23 +81,44 @@ router.get('/customers', adminController.getCustomers);
 // ---------- Delivery Rules ----------
 router.get('/delivery-rules', adminController.getDeliveryRules);
 router.post('/delivery-rules', adminController.createDeliveryRule);
-router.put('/delivery-rules/:id', adminController.updateDeliveryRule);
+router.put(
+  '/delivery-rules/:id',
+  adminController.updateDeliveryRule
+);
 router.patch(
   '/delivery-rules/:id/toggle',
   adminController.toggleDeliveryRule
 );
 
 // ---------- Categories ----------
-router.get('/categories', categoryAdminController.getCategories);
-router.post('/categories', categoryAdminController.createCategory);
-router.put('/categories/:id', categoryAdminController.updateCategory);
-router.patch('/categories/:id/toggle', categoryAdminController.toggleCategory);
-router.delete('/categories/:id', categoryAdminController.deleteCategory);
+router.get(
+  '/categories',
+  categoryAdminController.getCategories
+);
+router.post(
+  '/categories',
+  categoryAdminController.createCategory
+);
+router.put(
+  '/categories/:id',
+  categoryAdminController.updateCategory
+);
+router.patch(
+  '/categories/:id/toggle',
+  categoryAdminController.toggleCategory
+);
+router.delete(
+  '/categories/:id',
+  categoryAdminController.deleteCategory
+);
 
 // ---------- Products (Menu Items) ----------
 
 // List for admin panel
-router.get('/products', productController.getAllProductsAdmin);
+router.get(
+  '/products',
+  productController.getAllProductsAdmin
+);
 
 // Create product WITH image file (multipart/form-data)
 router.post(
@@ -105,16 +141,27 @@ router.patch(
 );
 
 // Soft delete
-router.delete('/products/:id', productController.softDeleteProduct);
+router.delete(
+  '/products/:id',
+  productController.softDeleteProduct
+);
 
 // Drag & drop reorder
-router.post('/products/reorder', productController.reorderProducts);
+router.post(
+  '/products/reorder',
+  productController.reorderProducts
+);
 
 // "Stop Today / Clear Today Block"
-router.patch('/products/:id/stock-today', productController.toggleStockToday);
+router.patch(
+  '/products/:id/stock-today',
+  productController.toggleStockToday
+);
 
 // per-product stats
-router.get('/products/:id/stats', productController.getProductStats);
-
+router.get(
+  '/products/:id/stats',
+  productController.getProductStats
+);
 
 module.exports = router;

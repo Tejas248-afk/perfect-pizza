@@ -6,16 +6,28 @@ const orderController = require('../controllers/orderController');
 
 const router = express.Router();
 
+/* ---------------- CHECKOUT ROUTES (NO AUTH REQUIRED) ---------------- */
+
+// Preview (subtotal + delivery + discount + GST)
+// POST /api/orders/preview
+router.post('/preview', orderController.previewOrder);
+
+// COD order create
+// POST /api/orders/cod
+router.post('/cod', orderController.createCodOrder);
+
+/* ---------------- BAQI SAB ROUTES: AUTH REQUIRED ---------------- */
+
 // Sab orders endpoints ke liye auth required
 router.use(authMiddleware);
 
-// ---------------- CUSTOMER ROUTES ----------------
+/* ---------------- CUSTOMER ROUTES ---------------- */
 
 // Current user ke saare orders
 // GET /api/orders/my
 router.get('/my', orderController.getMyOrders);
 
-// ---------------- KITCHEN / ADMIN ROUTES ----------------
+/* ---------------- KITCHEN / ADMIN ROUTES ---------------- */
 
 // Kitchen dashboard list
 // GET /api/orders/kitchen?filter=active|new|completed
@@ -52,13 +64,5 @@ router.delete(
 // Single order details (customer + admin + kitchen)
 // GET /api/orders/:id
 router.get('/:id', orderController.getOrderById);
-
-// ---------------- CHECKOUT ROUTES ----------------
-
-// Preview (subtotal + delivery + discount + GST)
-router.post('/preview', orderController.previewOrder);
-
-// COD order create
-router.post('/cod', orderController.createCodOrder);
 
 module.exports = router;
